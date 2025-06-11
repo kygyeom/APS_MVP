@@ -27,8 +27,10 @@ st.title("🩺 인슐린 제어 시뮬레이터")
 if st.session_state.step == 0:
     st.subheader("1️⃣ 환자 선택")
     patient_name = st.selectbox("시뮬레이션할 환자를 선택하세요:", [
-        "adolescent#001", "adolescent#002",
-        "adult#001"
+            "adult#001", "adult#002", "adult#003", "adult#004", "adult#005", 
+            "adult#006", "adult#007", "adult#008", "adult#009", "adult#010",
+            "adolescent#001", "adolescent#002", "adolescent#003", "adolescent#004", "adolescent#005", 
+            "adolescent#006", "adolescent#007", "adolescent#008", "adolescent#009", "adolescent#010",         
     ])
     csv_file = f"{patient_name}_100_500.csv"
 
@@ -38,25 +40,75 @@ if st.session_state.step == 0:
         st.session_state.step += 1
         st.rerun()
 
-# STEP 1: 사용자 인슐린 제어 설정
-elif st.session_state.step == 1:
-    st.subheader("2️⃣ 사용자 인슐린 제어 설정 (6시간)")
-
-    # 사용자 인슐린 용량 설정
-    dose1 = st.slider("0~2시간", 0.0, 0.5, 0.1, 0.01)
-    dose2 = st.slider("2~4시간", 0.0, 0.5, 0.1, 0.01)
-    dose3 = st.slider("4~6시간", 0.0, 0.5, 0.1, 0.01)
-    st.session_state.doses = [dose1]*40 + [dose2]*40 + [dose3]*40
+if st.session_state.step == 1:
+    # 전체 시간 구간 시각화
+    st.title("🩺 인슐린 제어 시뮬레이터")
 
     # 데이터 로드
-    df = pd.read_csv(st.session_state.csv_file)
+    df = pd.read_csv(f"./data/st.session_state.csv_file")
     df["Time"] = pd.to_datetime(df["Time"])
 
-    # 초기 혈당 설정 (AI 기준)
+
+    # 1-1. 전체 혈당 & CGM 그래프
+    st.subheader("📈 전체 혈당 & CGM")
+    fig_bg_cgm = go.Figure()
+    fig_bg_cgm.add_trace(go.Scatter(x=df["Time"], y=df["BG"], name="혈당", line=dict(color="blue")))
+    fig_bg_cgm.add_trace(go.Scatter(
+        x=df["Time"],
+        y=df["CGM"],
+        name="CGM",
+        line=dict(color="green", dash="dot")
+    ))
+
+    fig_bg_cgm.update_layout(
+        xaxis_title="시간",
+        yaxis_title="혈당 (mg/dL)",
+        height=400
+    )
+    st.plotly_chart(fig_bg_cgm, use_container_width=True)
+
+    # 1-2. 전체 인슐린 주입량 그래프
+    fig_insulin = go.Figure()
+    fig_insulin.add_trace(go.Scatter(x=df["Time"], y=df["insulin"], name="인슐린", line=dict(color="red")))
+    fig_insulin.update_layout(
+        xaxis_title="시간",
+        yaxis_title="인슐린 (U)",
+        height=300
+    )
+    st.plotly_chart(fig_insulin, use_container_width=True)
+
+    fig_cho = go.Figure()
+    fig_cho.add_trace(go.Scatter(x=df["Time"], y=df["CHO"], name="CHO", line=dict(color="orange")))
+    fig_cho.update_layout(
+        xaxis_title="시간",
+        yaxis_title="CHO (g)",
+        height=300
+    )
+    st.plotly_chart(fig_cho, use_container_width=True)
+
+    
+        # 다음 단계로 이동할 버튼
+    if st.button("➡️ 다음 단계로 (TIR 비교)"):
+        st.session_df = df
+        st.session_state.step += 1
+        st.rerun()
+
+# STEP 1: 사용자 인슐린 제어 설정
+elif st.session_state.step == 2:
+    st.subheader("2️⃣ 사용자 인슐린 제어 설정 (6시간)")
+    df = st.session_df
+
+    # 사용자 인슐린 용량 설정
+    dose1 = st.slider("0~8h", 0.0, 0.5, 0.1, 0.01)
+    dose2 = st.slider("8~16h", 0.0, 0.5, 0.2, 0.01)
+    dose3 = st.slider("16~23h", 0.0, 0.5, 0.1, 0.01)
+    dose4 = st.slider("기저", 0.0, 0.5, 0.15, 0.01)
+    st.session_state.doses = [dose1]*160 + [dose2]*160 + [dose3]*160
+
+    # 초기 혈당 설정
     mid_index = len(df) // 2
-    ai_df = df.iloc[mid_index - 60: mid_index + 60].reset_index(drop=True)
+    ai_df = df.iloc[mid_index - 240: mid_index + 240].reset_index(drop=True)  # 총 480개
     init_bg = ai_df["BG"].values[0]
-    # init_bg = 140 
 
     # 사용자 시뮬레이션 환경 구성
     sensor = CGMSensor.withName("Dexcom")
@@ -72,11 +124,12 @@ elif st.session_state.step == 1:
     env_user.reset()
 
     # 사용자 시뮬레이션 실행
-    bg_user, ins_user = [], []
+    bg_user, ins_user, ins_ba = [], [], []
     for u in st.session_state.doses:
-        obs, _, _, _ = env_user.step(Action(basal=0.0, bolus=u))
+        obs, _, _, _ = env_user.step(Action(basal=dose4, bolus=u))
         bg_user.append(obs[0])
         ins_user.append(u)
+        ins_ba.append(dose4)
 
     # AI 데이터 추출
     bg_ai = ai_df["BG"].values
@@ -94,10 +147,13 @@ elif st.session_state.step == 1:
     )
     st.plotly_chart(fig_bg, use_container_width=True)
 
+    # 인슐린 그래프
     st.subheader("💉 인슐린 주입량 비교")
     fig_insulin = go.Figure()
     fig_insulin.add_trace(go.Scatter(y=ins_ai, name="AI 인슐린", line=dict(color="orange", dash="dash")))
     fig_insulin.add_trace(go.Scatter(y=ins_user, name="사용자 인슐린", line=dict(color="red")))
+    fig_insulin.add_trace(go.Scatter(y=ins_ba, name="사용자 기저 인슐린", line=dict(color="blue")))
+
     fig_insulin.update_layout(
         xaxis_title="Time Step (3min)",
         yaxis_title="인슐린 (U)",
@@ -115,7 +171,7 @@ elif st.session_state.step == 1:
         st.rerun()
 
 # STEP 2: 시뮬레이션 및 결과
-elif st.session_state.step == 2:
+elif st.session_state.step == 3:
 
 
     # 3. TIR 계산 및 막대 시각화
