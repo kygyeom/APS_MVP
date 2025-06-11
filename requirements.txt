@@ -4,3 +4,4 @@ plotly
 matplotlib
 numpy
 gym
+scipy
