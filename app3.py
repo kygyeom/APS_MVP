@@ -45,7 +45,7 @@ if st.session_state.step == 1:
     st.title("🩺 인슐린 제어 시뮬레이터")
 
     # 데이터 로드
-    df = pd.read_csv(f"./data/{st.session_state.csv_file}")
+    df = pd.read_csv(f"/data/{st.session_state.csv_file}")
     df["Time"] = pd.to_datetime(df["Time"])
 
 
