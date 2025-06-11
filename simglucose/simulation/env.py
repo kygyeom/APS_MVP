@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import timedelta
 import logging
 from collections import namedtuple
-from simglucose.simulation.rendering import Viewer
+# from simglucose.simulation.rendering import Viewer
 
 try:
     from rllab.envs.base import Step
