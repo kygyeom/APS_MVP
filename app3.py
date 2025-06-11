@@ -42,10 +42,9 @@ if st.session_state.step == 0:
 
 if st.session_state.step == 1:
     # 전체 시간 구간 시각화
-    st.title("🩺 인슐린 제어 시뮬레이터")
 
     # 데이터 로드
-    df = pd.read_csv(f"/data/{st.session_state.csv_file}")
+    df = pd.read_csv(f"data/{st.session_state.csv_file}")
     df["Time"] = pd.to_datetime(df["Time"])
 
 
@@ -160,7 +159,6 @@ elif st.session_state.step == 2:
         height=300
     )
     st.plotly_chart(fig_insulin, use_container_width=True)
-
     # 다음 단계로 이동할 버튼
     if st.button("➡️ 다음 단계로 (TIR 비교)"):
         st.session_state.bg_user = bg_user
