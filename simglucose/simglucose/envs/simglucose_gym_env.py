@@ -10,7 +10,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 from datetime import datetime
-import gymnasium
+# import gymnasium
 
 
 PATIENT_PARA_FILE = pkg_resources.resource_filename(
@@ -120,55 +120,55 @@ class T1DSimEnv(gym.Env):
         return self.env.pump._params["max_basal"]
 
 
-class T1DSimGymnaisumEnv(gymnasium.Env):
-    metadata = {"render_modes": ["human"], "render_fps": 60}
-    MAX_BG = 1000
+# class T1DSimGymnaisumEnv(gymnasium.Env):
+#     metadata = {"render_modes": ["human"], "render_fps": 60}
+#     MAX_BG = 1000
 
-    def __init__(
-        self,
-        patient_name=None,
-        custom_scenario=None,
-        reward_fun=None,
-        seed=None,
-        render_mode=None,
-    ) -> None:
-        super().__init__()
-        self.render_mode = render_mode
-        self.env = T1DSimEnv(
-            patient_name=patient_name,
-            custom_scenario=custom_scenario,
-            reward_fun=reward_fun,
-            seed=seed,
-        )
-        self.observation_space = gymnasium.spaces.Box(
-            low=0, high=self.MAX_BG, shape=(1,), dtype=np.float32
-        )
-        self.action_space = gymnasium.spaces.Box(
-            low=0, high=self.env.max_basal, shape=(1,), dtype=np.float32
-        )
+#     def __init__(
+#         self,
+#         patient_name=None,
+#         custom_scenario=None,
+#         reward_fun=None,
+#         seed=None,
+#         render_mode=None,
+#     ) -> None:
+#         super().__init__()
+#         self.render_mode = render_mode
+#         self.env = T1DSimEnv(
+#             patient_name=patient_name,
+#             custom_scenario=custom_scenario,
+#             reward_fun=reward_fun,
+#             seed=seed,
+#         )
+#         self.observation_space = gymnasium.spaces.Box(
+#             low=0, high=self.MAX_BG, shape=(1,), dtype=np.float32
+#         )
+#         self.action_space = gymnasium.spaces.Box(
+#             low=0, high=self.env.max_basal, shape=(1,), dtype=np.float32
+#         )
 
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        # Truncated will be controlled by TimeLimit wrapper when registering the env.
-        # For example,
-        # register(
-        #     id="simglucose/adolescent2-v0",
-        #     entry_point="simglucose.envs:T1DSimGymnaisumEnv",
-        #     max_episode_steps=10,
-        #     kwargs={"patient_name": "adolescent#002"},
-        # )
-        # Once the max_episode_steps is set, the truncated value will be overridden.
-        truncated = False
-        return np.array([obs.CGM], dtype=np.float32), reward, done, truncated, info
+#     def step(self, action):
+#         obs, reward, done, info = self.env.step(action)
+#         # Truncated will be controlled by TimeLimit wrapper when registering the env.
+#         # For example,
+#         # register(
+#         #     id="simglucose/adolescent2-v0",
+#         #     entry_point="simglucose.envs:T1DSimGymnaisumEnv",
+#         #     max_episode_steps=10,
+#         #     kwargs={"patient_name": "adolescent#002"},
+#         # )
+#         # Once the max_episode_steps is set, the truncated value will be overridden.
+#         truncated = False
+#         return np.array([obs.CGM], dtype=np.float32), reward, done, truncated, info
 
-    def reset(self, seed=None, options=None):
-        super().reset(seed=seed)
-        obs, _, _, info = self.env._raw_reset()
-        return np.array([obs.CGM], dtype=np.float32), info
+#     def reset(self, seed=None, options=None):
+#         super().reset(seed=seed)
+#         obs, _, _, info = self.env._raw_reset()
+#         return np.array([obs.CGM], dtype=np.float32), info
 
-    def render(self):
-        if self.render_mode == "human":
-            self.env.render()
+#     def render(self):
+#         if self.render_mode == "human":
+#             self.env.render()
 
-    def close(self):
-        self.env.close()
+#     def close(self):
+#         self.env.close()
