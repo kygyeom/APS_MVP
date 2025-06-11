@@ -45,7 +45,7 @@ if st.session_state.step == 1:
     st.title("🩺 인슐린 제어 시뮬레이터")
 
     # 데이터 로드
-    df = pd.read_csv(f"./data/st.session_state.csv_file")
+    df = pd.read_csv(f"./data/{st.session_state.csv_file}")
     df["Time"] = pd.to_datetime(df["Time"])
 
 
@@ -196,6 +196,19 @@ elif st.session_state.step == 3:
         height=400
     )
     st.plotly_chart(fig_tir, use_container_width=True)
+
+    st.subheader("📊 TIR (Time in Range: 70~180 mg/dL)")
+    st.write(f"✅ **AI TIR**: {tir_ai:.2f}%")
+    st.write(f"🧑‍⚕️ **사용자 TIR**: {tir_user:.2f}%")
+
+    # 결과 비교 메시지
+    st.subheader("🏁 결과 요약")
+    if tir_user > tir_ai:
+        st.success("🎉 **축하합니다!** 사용자 제어가 AI보다 높은 TIR을 기록했습니다!")
+    elif tir_user < tir_ai:
+        st.error("🤖 아쉽습니다. AI 제어가 더 높은 TIR을 기록했습니다.")
+    else:
+        st.info("⚖️ 사용자와 AI가 동일한 TIR 성능을 보여주었습니다.")
 
     if st.button("처음으로 돌아가기"):
         st.session_state.step = 0
