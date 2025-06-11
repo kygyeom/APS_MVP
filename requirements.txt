@@ -5,3 +5,4 @@ plotly
 scipy
 setuptools
 gym
+matplotlib
