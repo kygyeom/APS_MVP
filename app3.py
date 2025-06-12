@@ -190,7 +190,15 @@ if st.session_state.step == 1:
     else:
         st.warning("선택한 환자의 정보를 찾을 수 없습니다.")
         
-
+    # STEP 1 내에서 다음 단계 버튼 위에 추가
+    st.subheader("🕒 인슐린 제어 시간 구간 선택")
+    st.session_state.control_range = st.radio(
+        "인슐린을 몇 시간 동안 조절하시겠습니까?",
+        ["14시간 (0~14h)", "24시간 (0~24h)"],
+        index=0,
+        horizontal=True,
+        key="control_range_radio"
+    )
 
     col1, col2 = st.columns(2)
 
@@ -213,6 +221,7 @@ elif st.session_state.step == 2:
     st.subheader("2️⃣ 사용자 인슐린 제어 설정 (총 14시간)")
     st.caption("각 구간은 시간대에 따라 식사 시점 또는 활동량에 맞춘 인슐린 조절이 필요합니다.")
     st.caption("⏱️ 시간 구간: 0–6h, 6–10h, 10–14h, 기저 인슐린은 전 구간에 적용")
+    control_range = st.session_state.control_range  # "14시간 (0~14h)" 또는 "24시간 (0~24h)"
 
     # 사용자 시뮬레이션 함수 정의
     def simulate_user_response(env_user, dose_bolus, dose_basal):
@@ -225,74 +234,162 @@ elif st.session_state.step == 2:
         return bg_user, ins_user, ins_ba
 
     df = st.session_df
-    cols = st.columns(4)
+    if "14시간" in control_range:
+        cols = st.columns(4)
+        with cols[0]:
+            dose1 = svs.vertical_slider(
+            key="dose1",
+            default_value=0.03,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
 
-    with cols[0]:
-        dose1 = svs.vertical_slider(
-        key="dose1",
-        default_value=0.03,
-        min_value=0,
-        max_value=0.05,
-        step=0.001,
-        slider_color='red',
-        track_color='lightgray',
-        thumb_color='red',
-        height=150,
-        value_always_visible=True
-        )
-        st.caption("0~6h")
+            st.caption("0~6h")
 
-    with cols[1]:
-        dose2 = svs.vertical_slider(
-        key="dose2",
-        default_value=0.01,
-        min_value=0,
-        max_value=0.05,
-        step=0.001,
-        slider_color='red',
-        track_color='lightgray',
-        thumb_color='red',
-        height=150,
-        value_always_visible=True
-        )
-        st.caption("6~10h")
+        with cols[1]:
+            dose2 = svs.vertical_slider(
+            key="dose2",
+            default_value=0.01,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
+            st.caption("6~10h")
 
-    with cols[2]:
-        dose3 = svs.vertical_slider(
-        key="dose3",
-        default_value=0.02,
-        min_value=0,
-        max_value=0.05,
-        step=0.001,
-        slider_color='red',
-        track_color='lightgray',
-        thumb_color='red',
-        height=150,
-        value_always_visible=True
-        )
-        st.caption("10~14h")
+        with cols[2]:
+            dose3 = svs.vertical_slider(
+            key="dose3",
+            default_value=0.02,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
+            st.caption("10~14h")
 
-    with cols[3]:
-        dose4 = svs.vertical_slider(
-        key="dose4",
-        default_value=0.02,
-        min_value=0,
-        max_value=0.05,
-        step=0.001,
-        slider_color='red',
-        track_color='lightgray',
-        thumb_color='red',
-        height=150,
-        value_always_visible=True
-        )        
-        st.caption("기저인슐린")
+        with cols[3]:
+            dose = svs.vertical_slider(
+            key="dose",
+            default_value=0.02,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
+            st.caption("기저")
 
-    # 인슐린 주입 시퀀스 구성
-    dose_bolus = [dose1]*120 + [dose2]*80 + [dose3]*80
+        # 인슐린 주입 시퀀스 구성
+        dose_bolus = [dose1]*120 + [dose2]*80 + [dose3]*80
+        sim_step = 280
+
+    else:  # 24시간
+        cols = st.columns(5)
+
+        with cols[0]:
+            dose1 = svs.vertical_slider(
+            key="dose1",
+            default_value=0.03,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
+
+            st.caption("0~6h")
+
+        with cols[1]:
+            dose2 = svs.vertical_slider(
+            key="dose2",
+            default_value=0.01,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
+            st.caption("6~12h")
+
+        with cols[2]:
+            dose3 = svs.vertical_slider(
+            key="dose3",
+            default_value=0.02,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
+            st.caption("12~18h")
+
+        with cols[3]:
+            dose4 = svs.vertical_slider(
+            key="dose4",
+            default_value=0.02,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )
+            st.caption("18~24h")
+
+        with cols[4]:
+            dose = svs.vertical_slider(
+            key="dose",
+            default_value=0.02,
+            min_value=0,
+            max_value=0.05,
+            step=0.001,
+            slider_color='red',
+            track_color='lightgray',
+            thumb_color='red',
+            height=150,
+            value_always_visible=True
+            )        
+            st.caption("기저인슐린")
+
+
+        # 인슐린 주입 시퀀스 구성
+        dose_bolus = [dose1]*120 + [dose2]*120 + [dose3]*120 +[dose4]*120
+        sim_step = 480
+    
+    
     st.session_state.doses = dose_bolus
 
     # 초기 혈당 설정
-    ai_df = df.iloc[:280].reset_index(drop=True)
+    ai_df = df.iloc[:sim_step].reset_index(drop=True)
     init_bg = ai_df["BG"].iloc[0]
 
     # 사용자 시뮬레이션 환경 구성
@@ -304,7 +401,7 @@ elif st.session_state.step == 2:
     env_user.reset()
 
     # 사용자 시뮬레이션 실행
-    bg_user, ins_user, ins_ba = simulate_user_response(env_user, dose_bolus, dose4)
+    bg_user, ins_user, ins_ba = simulate_user_response(env_user, dose_bolus, dose)
 
     # AI 데이터 추출
     bg_ai = ai_df["BG"].values
@@ -314,9 +411,9 @@ elif st.session_state.step == 2:
 
     # 인슐린 그래프
     fig_insulin = go.Figure()
-    fig_insulin.add_trace(go.Scatter(x=df["Time"][:280], y=ins_ai, name="AI 인슐린", line=dict(color="orange", dash="dash")))
-    fig_insulin.add_trace(go.Scatter(x=df["Time"][:280], y=ins_user, name="사용자 인슐린", line=dict(color="red")))
-    fig_insulin.add_trace(go.Scatter(x=df["Time"][:280], y=ins_ba, name="사용자 기저 인슐린", line=dict(color="blue")))
+    fig_insulin.add_trace(go.Scatter(x=df["Time"][:sim_step], y=ins_ai, name="AI 인슐린", line=dict(color="orange", dash="dash")))
+    fig_insulin.add_trace(go.Scatter(x=df["Time"][:sim_step], y=ins_user, name="사용자 인슐린", line=dict(color="red")))
+    fig_insulin.add_trace(go.Scatter(x=df["Time"][:sim_step], y=ins_ba, name="사용자 기저 인슐린", line=dict(color="blue")))
     fig_insulin.update_layout(
         yaxis_title="인슐린 (U)",
         height=300,
@@ -328,8 +425,8 @@ elif st.session_state.step == 2:
     # 결과 혈당 비교
     st.subheader("📈 혈당 비교: AI vs 사용자")
     fig_bg = go.Figure()
-    fig_bg.add_trace(go.Scatter(x=df["Time"][:280], y=bg_ai, name="AI 혈당", line=dict(color="orange")))
-    fig_bg.add_trace(go.Scatter(x=df["Time"][:280], y=bg_user, name="사용자 혈당", line=dict(color="green")))
+    fig_bg.add_trace(go.Scatter(x=df["Time"][:sim_step], y=bg_ai, name="AI 혈당", line=dict(color="orange")))
+    fig_bg.add_trace(go.Scatter(x=df["Time"][:sim_step], y=bg_user, name="사용자 혈당", line=dict(color="green")))
     # 정상 혈당 범위 (70~180) 기준선
     fig_bg.add_hline(y=70, line=dict(color="blue", width=1, dash="dot"), name="저혈당 기준")
     fig_bg.add_hline(y=180, line=dict(color="red", width=1, dash="dot"), name="고혈당 기준")
@@ -376,7 +473,7 @@ elif st.session_state.step == 2:
     else:
         st.success(f"✅ 최종 혈당 {bg_final:.1f} mg/dL — 안정적인 범위입니다.")
 
-    events = analyze_glucose_events(bg_user, df["Time"][:280])
+    events = analyze_glucose_events(bg_user, df["Time"][:sim_step])
 
     st.subheader("🩸 혈당 이상 구간 요약")
     if events:
