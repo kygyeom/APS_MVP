@@ -6,3 +6,5 @@ scipy
 setuptools
 gym
 matplotlib
+streamlit-vertical-slider
+streamlit-toggle
