@@ -23,6 +23,8 @@ components.html("""
     </script>
 """, height=0)
 
+def plot_static(fig, **kwargs):
+    st.plotly_chart(fig, use_container_width=True, config={"staticPlot": True, **kwargs})
     
 if st.session_state.get("trigger_scroll", False):
     components.html("""
@@ -257,6 +259,7 @@ if st.session_state.step == 0:
     - 인슐린 **타이밍과 용량**의 중요성 학습
     - **기저 인슐린과 볼루스 인슐린**의 역할 이해
     """)
+    st.image("diabetes.png", use_container_width=True)
 
     st.markdown("## 💡 왜 혈당 조절이 어려울까요?")
 
@@ -387,6 +390,7 @@ elif st.session_state.step == 1:
         """)
     else:
         st.warning("선택한 환자의 정보를 찾을 수 없습니다.")
+    st.image("how.png", use_container_width=True)
 
     with st.expander("ℹ️ 혈당 조절 가이드", expanded=False):
         st.markdown("""
@@ -556,7 +560,8 @@ for seg in [1, 2, 3]:
             )
 
             # 📊 렌더링
-            st.plotly_chart(fig, use_container_width=True)
+            # st.plotly_chart(fig, use_container_width=True)
+            plot_static(fig)
 
             # 📊 혈당 결과 해석
             st.markdown("#### 🔍 혈당 결과 해석")
@@ -677,7 +682,9 @@ if st.session_state.step == 24:
         legend=dict(x=0, y=1.1, orientation="h")
         )
     
-    st.plotly_chart(fig, use_container_width=True)    
+    # st.plotly_chart(fig, use_container_width=True) 
+    plot_static(fig)
+   
 
     # 3. TIR 계산 및 막대 시각화
     def compute_tir(bg_series):
@@ -702,7 +709,9 @@ if st.session_state.step == 24:
         height=400
     )
 
-    st.plotly_chart(fig_tir, use_container_width=True)
+    # st.plotly_chart(fig_tir, use_container_width=True)
+    plot_static(fig_tir)
+
     st.subheader("📊 TIR (Time in Range: 70~180 mg/dL)")
     st.write(f"✅ **AI TIR**: {tir_ai:.2f}%")
     st.write(f"🧑‍⚕️ **사용자 TIR**: {tir_user:.2f}%")
