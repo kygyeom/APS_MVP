@@ -41,7 +41,7 @@ An interactive web-based simulator for understanding insulin therapy in Type 1 D
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/insulin-simulator.git
+git clone https://github.com/kygyeom/APS_MVP.git
 cd insulin-simulator
 
 # Create environment
@@ -50,6 +50,7 @@ conda activate insulin-sim
 
 # Launch Streamlit app
 streamlit run app.py
+```
 
 🧠 Simulation Flow
 Blood Glucose Measurement
@@ -82,8 +83,19 @@ Public health demonstrations
 This project is for educational and non-commercial research purposes. Contact the maintainer for inquiries.
 
 👨‍⚕️ Credits
-Created by [Your Name] at Kongju National University
+Created by Kim Yun Gyeom at Kongju National University
 Part of the [AI-integrated Artificial Pancreas Project]
 
-go
-Copy code
+## 🌐 Try the Insulin Control Simulator
+
+Experience our interactive simulation tool to understand insulin timing and dosage management in diabetes care.
+
+🔗 [Launch the Simulator](https://apsmvp-jrhyuohlqtgwdqdlhc3adl.streamlit.app/)
+
+> 💬 We welcome your feedback!  
+> Your suggestions will help us improve this educational platform for better understanding of blood glucose regulation and insulin therapy.
+
+---
+
+📌 **Note**  
+This simulator is designed for educational purposes only and is not intended for clinical or diagnostic use.
