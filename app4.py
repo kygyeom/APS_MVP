@@ -1,5 +1,7 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
+import numpy as np
 import datetime
 import sys
 import plotly.graph_objects as go
@@ -15,6 +17,21 @@ from simglucose.sensor.cgm import CGMSensor
 from simglucose.actuator.pump import InsulinPump
 from simglucose.controller.base import Action
 
+components.html("""
+    <script>
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    </script>
+""", height=0)
+
+    
+if st.session_state.get("trigger_scroll", False):
+    components.html("""
+        <script>
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        </script>
+    """, height=0)
+    st.session_state.trigger_scroll = False  # 플래그 초기화
+    
 def show_section_info(df, env, section_index):
     STEP_PER_SECTION = 160  # 3분 간격 × 160 = 480분 = 8시간
     start = section_index * STEP_PER_SECTION
@@ -40,15 +57,38 @@ def show_section_info(df, env, section_index):
         current_bg = df["BG"].iloc[start]
     current_bg = round(current_bg, 1)
 
-    # 🍽 식사 정보
+    # 🍽 식사 정보 + 음식 예시 추가 (다양한 종류로 확장)
     meal_df = df.iloc[start:end][df["CHO"] > 0]
     if not meal_df.empty:
         meal_events = []
         for _, row in meal_df.iterrows():
             time = pd.to_datetime(row["Time"]).strftime("%H:%M")
             cho = round(row["CHO"], 1)
-            meal_events.append(f"{time} - {cho}g")
-        meal_info = "🍽 식사 시점 및 섭취량:\n- " + "\n- ".join(meal_events)
+            
+            # 탄수화물 → 음식 예시 및 칼로리 대략 추정
+            if cho < 10:
+                food = "딸기 한 줌 🍓 / 우유 1컵 🥛"
+            elif cho < 20:
+                food = "바나나 1개 🍌 / 고구마 반 개 🍠"
+            elif cho < 30:
+                food = "식빵 1.5장 🍞 / 그래놀라 요거트 🥣"
+            elif cho < 40:
+                food = "공기밥 반 공기 🍚 / 토스트 세트 🍳"
+            elif cho < 55:
+                food = "라면 1개 🍜 / 김밥 1줄 🍙"
+            elif cho < 70:
+                food = "한식 도시락 🍱 / 떡볶이 + 순대 🍢"
+            else:
+                food = "햄버거 세트 🍔🍟 / 피자 2조각 🍕"
+
+            estimated_kcal = int(cho * 4)  # 탄수화물 1g = 약 4 kcal
+
+            meal_events.append(
+                f"{time}쯤에 {food}를 먹었어요. "
+                f"탄수화물 약 {cho}g → 약 {estimated_kcal} kcal 정도 됩니다."
+            )
+
+        meal_info = "🍽 식사 기록 요약:\n- " + "\n- ".join(meal_events)
     else:
         meal_info = "🥛 공복 상태: 해당 구간에 식사 없음"
 
@@ -80,16 +120,16 @@ def show_section_info(df, env, section_index):
         bolus_idx = (df_section["Time"] - bolus_time).abs().idxmin()
         bolus_time_info = f"🍚 주요 식사 감지됨: {first_meal_time.strftime('%H:%M')}\n💉 볼루스 인슐린은 `{bolus_time.strftime('%H:%M')}`에 1회 주입 예정 (step {bolus_idx})"
 
+    st.markdown(f"⏱ **시간**: {section_start_time.strftime('%H:%M')} ~ {section_end_time.strftime('%H:%M')}, {activity}")
     col1, col2 = st.columns([1, 2])
-
+    
     with col1:
         st.image("CGM.png", caption="혈당 측정기", use_container_width=True)
 
     with col2:
-        st.markdown(f"⏱ **시간**: {section_start_time.strftime('%H:%M')} ~ {section_end_time.strftime('%H:%M')}")
-        st.markdown(f"🩸 **현재 혈당**: `{current_bg} mg/dL`")
+
+        st.markdown(f"🩸 **측정된 현재 혈당**: `{current_bg} mg/dL`, 권장 범위: 70~180 mg/dL")
         st.markdown(meal_info)
-        st.markdown(f"📌 **활동 정보**: {activity}")
         if bolus_time_info:
             st.success(bolus_time_info)
 
@@ -103,9 +143,29 @@ def show_section_info(df, env, section_index):
 
     with st.expander("📘 인슐린 주입 기준 보기", expanded=False):
         st.markdown("""
-        - **볼루스 인슐린**: 식사량에 따라 설정하며, 주요 식사 전 30분에 1회 주입합니다.
-        - **기저 인슐린**: 식사와 관계없이 지속적으로 작용합니다 (보통 0.01~0.03 단위/step)
-        - 총 주입량은 `단위/step × 160 step = 8시간`으로 계산됩니다
+        #### 💉 인슐린 주입 기준 안내
+
+        - **볼루스 인슐린**: 식사량에 따라 설정하며, 주요 식사 전 **30분에 1회** 주입합니다.
+            - 탄수화물 섭취량에 따른 계산 공식:
+                ```
+                볼루스 인슐린 (단위) = 식사 탄수화물(g) / ICR + 보정량
+                ```
+                - 예: 탄수화물 60g 섭취, ICR=10 → `60 / 10 = 6 단위`
+                - 보정량 = (현재 혈당 - 목표 혈당) / 감도 계수(GF)
+
+        - **기저 인슐린**: 식사와 관계없이 지속적으로 작용합니다.  
+        보통 1 step (3분)마다 `0.01 ~ 0.03 단위`가 투여됩니다.
+
+            - 총 기저 인슐린 양 계산 공식:
+                ```
+                기저 인슐린 총량 = 단위/step × 160 step (8시간)
+                ```
+
+            - 예: 0.02 단위/step이면 → `0.02 × 160 = 3.2 단위`
+
+        ---
+        ⚠️ 참고: 인슐린 용량은 개인의 인슐린 감수성에 따라 달라질 수 있으며,  
+        본 시뮬레이터는 교육용으로 제공됩니다.
         """)
 
 def analyze_glucose_events(bg_series, time_series):
@@ -126,6 +186,52 @@ def analyze_glucose_events(bg_series, time_series):
 
     return messages, df_g
 
+def summarize_today(basal_list, bolus_list, meal_total, bg_series):
+    summary = []
+
+    # 총량 계산
+    basal_total = sum(basal_list)
+    bolus_total = sum(bolus_list)
+    insulin_total = basal_total + bolus_total
+
+    # # 1. 인슐린 총량 평가
+    # if insulin_total > 10:
+    #     summary.append("💉 인슐린을 전반적으로 많이 사용했습니다.")
+    # elif insulin_total < 5:
+    #     summary.append("💉 인슐린 사용량이 다소 부족했습니다.")
+    # else:
+    #     summary.append("💉 인슐린 용량은 적절한 수준이었습니다.")
+
+    # 2. 식사량 평가
+    if meal_total > 150:
+        summary.append("🍚 오늘 섭취한 탄수화물 양이 많아 혈당 조절이 어려웠을 수 있습니다.")
+    elif meal_total < 50:
+        summary.append("🥛 식사량이 적어 저혈당 위험이 있을 수 있습니다.")
+    else:
+        summary.append("🥗 적절한 식사량이 유지되었습니다.")
+
+    # 3. 혈당 패턴 평가
+    hypo = sum(bg < 70 for bg in bg_series)
+    hyper = sum(bg > 180 for bg in bg_series)
+
+    if hypo > 5:
+        summary.append("⚠️ 저혈당이 여러 차례 발생했습니다. 기저 인슐린을 줄이는 것이 좋겠습니다.")
+    elif hyper > 5:
+        summary.append("⚠️ 고혈당이 자주 발생했습니다. 식사량을 조절하거나 볼루스 인슐린을 늘려야 할 수 있습니다.")
+    else:
+        summary.append("✅ 혈당이 안정적으로 유지되었습니다.")
+
+    # 종합 제안
+    if hyper > 5 and meal_total > 150:
+        summary.append("📌 식사량을 줄이거나 식후 가벼운 운동을 병행하면 혈당 조절에 도움이 됩니다.")
+    elif hypo > 5 and insulin_total > 10:
+        summary.append("📌 인슐린 용량을 줄이고 간식을 적절히 배분하는 것이 필요합니다.")
+    elif 0 < hypo <= 5 or 0 < hyper <= 5:
+        summary.append("📌 혈당 조절이 거의 잘 되었으나 약간의 보완 여지가 있습니다.")
+
+    return "\n".join(summary)
+
+
 # 세션 상태 초기화
 if "step" not in st.session_state:
     st.session_state.step = 0
@@ -136,60 +242,102 @@ st.title("🩺 인슐린 제어 시뮬레이터")
 
 # STEP 0: 환자 선택
 if st.session_state.step == 0:
-    st.subheader("1️⃣ 환자 선택")
+
+    st.markdown("""
+    ### 👨‍⚕️ 인슐린 제어 시뮬레이터 소개
+
+    가상의 제1형 당뇨병 환자를 대상으로,  
+    **사용자가 직접 인슐린 주입량을 설정**하고  
+    **AI 제어와 비교**해볼 수 있는 학습형 시뮬레이터입니다.
+
+    ---
+
+    #### 🎯 체험 목적 요약
+    - 당뇨병 환자의 혈당 조절 어려움 **간접 체험**
+    - 인슐린 **타이밍과 용량**의 중요성 학습
+    - **기저 인슐린과 볼루스 인슐린**의 역할 이해
+    """)
+
+    st.markdown("## 💡 왜 혈당 조절이 어려울까요?")
+
+    st.markdown("""
+    당뇨병 환자에게 인슐린 조절은 매일 반복되는 과제입니다.  
+    그중에서도 **식사와 혈당 측정**은 생명과 직결된 요소입니다.
+    """)
+    # ⏱ 혈당 조절 관련 팩트 카드
+    with st.expander("🩸 혈당 스파이크란?"):
+        st.markdown("""
+        #### 📊 혈당 조절, 왜 중요할까요?
+
+        - 🍚 건강한 사람은 식사 후 혈당이 **140mg/dL 이하**로 조절됩니다.  
+        - 그러나 당뇨 환자는 쉽게 **180mg/dL 이상**으로 올라가며 이를 **혈당 스파이크**라고 부릅니다.
+        - 💥 이 상태가 반복되면 **신장, 신경, 혈관계에 심각한 손상**을 줄 수 있습니다.
+        - ⏱ 인슐린 주입이 30분만 늦어져도 혈당 조절은 큰 영향을 받습니다.
+
+        ---
+        🤖 AI는 정확한 시점과 용량을 계산해 최적의 인슐린 제어를 시도합니다.  
+        🧑 사용자도 이를 직접 조절해보며 **혈당 반응을 체험**할 수 있습니다.
+        """)
+
+    # 💉 인슐린 타입 설명
+    with st.expander("💉 인슐린 이란?"):
+        st.markdown("""
+        인슐린은 몸 안에서 혈당을 조절해주는 생명에 꼭 필요한 호르몬입니다.
+        당뇨병 환자는 이 인슐린을 제대로 만들거나 활용하지 못해,
+        식사 후 혈당이 급격히 올라가고 몸에 큰 부담을 주게 됩니다.
+
+        특히 제1형 당뇨병 환자는 몸속에서 인슐린을 전혀 만들지 못하기 때문에,
+        하루에도 여러 번 주사나 인슐린 펌프를 통해 외부에서 직접 주입해야 합니다.
+
+        🩸 이 주사는 단순히 불편한 것을 넘어
+        매일 반복되는 고통과 스트레스를 동반합니다.
+        "지금 얼마나 넣어야 할까?", "혹시 저혈당이 올까?"라는 불안감은
+        환자들의 일상에 늘 그림자처럼 따라붙습니다.
+
+        이 시뮬레이터는
+        그들의 하루를 조금이나마 체험해보고,
+        AI의 도움으로 어떻게 부담을 줄일 수 있을지 함께 고민해보기 위해 만들어졌습니다.
+                    
+        | 구분 | 기저 인슐린 (Basal) | 식전 볼루스 인슐린 (Bolus) |
+        |------|--------------------|-----------------------------|
+        | 역할 | 공복 혈당 조절     | 식후 혈당 급등 억제         |
+        | 타이밍 | 하루 1~2회 지속 주입 | 식사 30분 전               |
+        | 작용 시간 | 느리고 지속적     | 빠르고 단기적              |
+
+        """, unsafe_allow_html=True)
+
+    with st.expander("🍽 식사는 왜 신중해야 하나요?"):
+        st.markdown("""
+        - **먹는 음식이 곧 혈당**입니다.  
+        - 같은 음식도 **시간, 양, 활동량**에 따라 혈당 반응이 달라집니다.
+        - 식사 전 인슐린(볼루스)을 **적절한 양으로, 미리** 주입하지 않으면  
+        → 혈당이 **180mg/dL 이상으로 급등(스파이크)**할 수 있습니다.
+        """)
+
+    with st.expander("🩸 혈당 측정 어떻게 하나요?"):
+        st.markdown("""
+        - 당뇨병 환자는 하루에도 **여러 번 혈당을 측정**합니다.
+        - 이는 단순한 숫자가 아니라,  
+        **“지금 내 몸은 안전한가?”를 확인하는 생존의 도구**입니다.
+        - 측정 없이 인슐린을 맞으면 → **저혈당 쇼크**나 **과다투여 위험** 발생
+        """)
+
+    # 📈 TIR 설명
+    with st.expander("📈 TIR(Time in Range)이란?"):
+        st.markdown("""
+        - 혈당이 **70~180 mg/dL** 범위 내에 머무는 시간 비율입니다.  
+        - TIR이 높을수록 혈당이 안정적으로 유지되고 있다고 볼 수 있습니다.  
+        - 본 시뮬레이터에서는 **AI vs 사용자** TIR을 비교하여 인슐린 전략의 효과를 확인할 수 있습니다.
+        """)
+
+    st.markdown("---")
+    st.success("✅ 아래에서 시뮬레이션할 환자를 선택한 후, 다음 단계로 이동하세요.")
+
+    st.subheader("환자 선택")
     patient_name = st.selectbox("시뮬레이션할 환자를 선택하세요:", [
         "adult#001", "adult#002", "adult#003",
         "adolescent#001", "adolescent#002", "adolescent#003",
     ])
-    st.markdown("""
-        ### 👨‍⚕️ 인슐린 제어 시뮬레이터 소개
-
-        이 시뮬레이터는 가상의 제1형 당뇨병 환자 데이터를 기반으로,  
-        **사용자가 직접 인슐린 주입량을 설정**하고,  
-        AI가 제어했을 때의 결과와 비교해볼 수 있는 학습형 플랫폼입니다.
-
-        ---
-
-        #### 🔍 시뮬레이션의 목적
-        - 혈당 조절에 있어 인슐린 주입 타이밍과 용량의 중요성을 체험합니다.
-        - AI 제어와 비교하여 사용자의 전략이 혈당 안정성에 어떤 영향을 미치는지 확인할 수 있습니다.
-        - 실제 당뇨병 치료에 사용되는 기저 인슐린(basal)과 식전 볼루스 인슐린(bolus)의 역할을 구분해 이해할 수 있습니다.
-
-        ---
-        """)
-    with st.expander("ℹ️ 기저 인슐린과 식전 볼루스 인슐린이란?"):
-        st.markdown("""
-        #### 💉 인슐린의 두 가지 유형
-
-        **1. 기저 인슐린 (Basal Insulin)**  
-        - 하루 종일 일정하게 분비되어 공복 혈당을 조절합니다.  
-        - 보통 하루 1~2회 또는 인슐린 펌프를 통해 지속적으로 주입됩니다.
-
-        **2. 식전 볼루스 인슐린 (Bolus Insulin)**  
-        - 식사 직전 주입하여 식사 후 급격히 상승하는 혈당을 조절합니다.  
-        - 탄수화물 섭취량과 혈당 수치에 따라 용량이 달라집니다.
-
-        ---
-
-        #### 🧠 요약 비교
-
-        | 구분 | 기저 인슐린 (Basal) | 식전 볼루스 인슐린 (Bolus) |
-        |------|--------------------|-----------------------------|
-        | 목적 | 공복 혈당 조절     | 식후 혈당 조절              |
-        | 주입 시기 | 하루 1~2회 또는 지속 주입 | 식사 직전               |
-        | 작용 시간 | 느리고 길게        | 빠르고 짧게               |
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        #### 📊 TIR(Time in Range)이란?
-        - TIR은 혈당이 70~180 mg/dL 범위 내에 있는 시간의 비율을 의미합니다.
-        - TIR이 높을수록 혈당이 안정적으로 유지되며, 당뇨병 관리가 잘 되고 있다는 지표로 사용됩니다.
-        - 본 시뮬레이터에서는 AI 제어와 사용자 제어의 TIR을 비교하여 제어 전략의 효과를 평가합니다.
-
-        ---
-
-        👉 아래에서 시뮬레이션할 환자를 선택한 후, 다음 단계로 이동해 주세요.
-        """)
     
     if st.button("다음 단계로"):
         st.session_state.selected_patient = patient_name
@@ -301,8 +449,8 @@ for seg in [1, 2, 3]:
         section_index = st.session_state.step - 21
         show_section_info(df, env, section_index)
         
-        dose = st.slider(f"볼루스 인슐린 (단위)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
-        basal = st.slider("기저 인슐린 (전 구간 적용)", 0.0, 0.05, st.session_state.get("dose_basal", 0.02), 0.001, key=f"basal{seg}")
+        dose = st.slider(f"볼루스 인슐린 (식사 30분전 주입)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
+        basal = st.slider("기저 인슐린 (8시간 동안 주입)", 0.0, 0.05, st.session_state.get("dose_basal", 0.02), 0.001, key=f"basal{seg}")
 
         # 💉 총 인슐린 투여량 계산
         total_basal = round(basal * 160, 2)  # 160 스텝 동안의 총 기저 인슐린
@@ -320,7 +468,7 @@ for seg in [1, 2, 3]:
         if env_init_key not in st.session_state:
             st.session_state[env_init_key] = copy.deepcopy(env)
 
-        if st.button(f"▶ 구간 {seg} 실행"):
+        if st.button(f"시뮬레이션 {seg} 실행"):
             env = copy.deepcopy(st.session_state[env_init_key])
             result = []
 
@@ -428,11 +576,10 @@ for seg in [1, 2, 3]:
             else:
                 st.success("✅ 모든 시간대에서 혈당이 정상 범위(70~180 mg/dL)를 유지했습니다.")
 
-
             
-        if st.button(f"🔁 구간 {seg} 다시 설정"):
-            if bg_key in st.session_state:
-                del st.session_state[bg_key]
+        # if st.button(f"🔁 구간 {seg} 다시 설정"):
+        #     if bg_key in st.session_state:
+        #         del st.session_state[bg_key]
 
         if st.button("➡️ 다음 구간으로"):
             st.session_state.env_user = copy.deepcopy(st.session_state[env_result_key])
@@ -444,10 +591,20 @@ for seg in [1, 2, 3]:
 # STEP 24: 결과 통합 시각화
 if st.session_state.step == 24:
     st.subheader("✅ 전체 시뮬레이션 결과 요약")
+
+    
     fig = go.Figure()
     full_bg = []
     full_bolus = []
     full_basal = []
+
+    # 샘플 타임스탬프 생성 (3분 간격, 총 480개: 24시간 분량)
+    start_time = datetime.datetime.strptime("00:00", "%H:%M")
+    time_range = [start_time + datetime.timedelta(minutes=3 * i) for i in range(480)]
+
+    # 데이터 로드
+    df = pd.read_csv(f"data/{st.session_state.csv_file}")
+    df["Time"] = pd.to_datetime(df["Time"])
 
     for i in range(1, 4):
         bg_key = f"bg_user{i}"
@@ -458,15 +615,34 @@ if st.session_state.step == 24:
             full_bolus.extend([dose_value] * 160)
             full_basal.extend([st.session_state.get("dose_basal", 0.02)] * 160)
 
+    meal_total = df.iloc[:480]["CHO"].sum()
+
+    # 요약 생성
+    st.markdown("### 📊 오늘의 혈당 제어 요약")
+    st.success(summarize_today(full_basal, full_bolus, meal_total, full_bg))
+
     # AI 제어 결과 불러오기
     ai_df = st.session_df.iloc[:480].reset_index(drop=True)
     ai_bg = ai_df["BG"].tolist()
 
     # 혈당 비교 시각화
     fig = go.Figure()
+        
+    # ✅ 1. 정상 범위 음영 (70~180 mg/dL)
+    fig.add_shape(
+        type="rect",
+        xref="x", yref="y",
+        x0=time_range[0], x1=time_range[-1],
+        y0=70, y1=180,
+        fillcolor="green",
+        opacity=0.2,
+        layer="below",
+        line_width=0,
+    )
 
     # 사용자 혈당
     fig.add_trace(go.Scatter(
+        x=time_range,
         y=full_bg,
         mode="lines",
         name="사용자 제어 혈당",
@@ -475,6 +651,7 @@ if st.session_state.step == 24:
 
     # AI 혈당
     fig.add_trace(go.Scatter(
+        x=time_range,
         y=ai_bg,
         mode="lines",
         name="AI 제어 혈당",
@@ -488,7 +665,89 @@ if st.session_state.step == 24:
         legend=dict(x=0, y=1.1, orientation="h")
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    # 레이아웃 설정
+    fig.update_layout(
+        title="AI vs 사용자 제어 시뮬레이션 결과 (24시간, 3분 간격)",
+        xaxis_title="시간 (HH:MM)",
+        yaxis_title="혈당 (mg/dL)",
+        xaxis=dict(
+            tickformat="%H:%M",
+            tickangle=45
+        ),
+        legend=dict(x=0, y=1.1, orientation="h")
+        )
+    
+    st.plotly_chart(fig, use_container_width=True)    
+
+    # 3. TIR 계산 및 막대 시각화
+    def compute_tir(bg_series):
+        in_range = np.logical_and(np.array(bg_series) >= 70, np.array(bg_series) <= 180)
+        return 100 * np.sum(in_range) / len(bg_series)
+
+    tir_ai = compute_tir(ai_bg)
+    tir_user = compute_tir(full_bg)
+
+    fig_tir = go.Figure()
+    fig_tir.add_trace(go.Bar(
+        x=["AI", "사용자"],
+        y=[tir_ai, tir_user],
+        marker_color=["green", "blue"]
+    ))
+
+    fig_tir.update_layout(
+        title="TIR (Time in Range) 비교",
+        yaxis_title="TIR (%)",
+        xaxis_title="제어 주체",
+        yaxis=dict(range=[0, 100]),
+        height=400
+    )
+
+    st.plotly_chart(fig_tir, use_container_width=True)
+    st.subheader("📊 TIR (Time in Range: 70~180 mg/dL)")
+    st.write(f"✅ **AI TIR**: {tir_ai:.2f}%")
+    st.write(f"🧑‍⚕️ **사용자 TIR**: {tir_user:.2f}%")
+
+    # 결과 비교 메시지
+    st.subheader("🏁 결과 요약")
+    if tir_user > tir_ai:
+        st.success("🎉 **축하합니다!** 사용자 제어가 AI보다 높은 TIR을 기록했습니다!")
+    elif tir_user < tir_ai:
+        st.error("🤖 아쉽습니다. AI 제어가 더 높은 TIR을 기록했습니다.")
+    else:
+        st.info("⚖️ 사용자와 AI가 동일한 TIR 성능을 보여주었습니다.")
+
+    def compute_variability(bg_series):
+        bg_array = np.array(bg_series)
+        avg = np.mean(bg_array)
+        std = np.std(bg_array)
+        cv = (std / avg) * 100
+        return avg, std, cv
+    
+    # 계산
+    avg_ai, std_ai, cv_ai = compute_variability(ai_bg)
+    avg_user, std_user, cv_user = compute_variability(full_bg)
+
+    # 표 형태 요약
+    st.subheader("📊 혈당 변동성 비교")
+
+    st.markdown(f"""
+    | 구분 | 평균 혈당 | 표준편차 (SD) | 변동계수 (CV%) |
+    |------|------------|----------------|----------------|
+    | **AI** | {avg_ai:.1f} mg/dL | {std_ai:.1f} | {cv_ai:.1f}% |
+    | **사용자** | {avg_user:.1f} mg/dL | {std_user:.1f} | {cv_user:.1f}% |
+    """, unsafe_allow_html=True)
+
+    # 해석 메시지
+    st.markdown("#### 🔍 혈당 변동 해석")
+    if cv_user > cv_ai:
+        st.warning(f"⚠️ 사용자의 혈당 변동성이 더 큽니다. (CV {cv_user:.1f}% > {cv_ai:.1f}%)")
+    else:
+        st.success(f"✅ 사용자의 혈당 변동성이 더 낮아 안정적인 패턴을 보였습니다. (CV {cv_user:.1f}% < {cv_ai:.1f}%)")
+
+    # 고위험 경고
+    if cv_user > 36:
+        st.error("🚨 혈당 변동계수(CV)가 36%를 초과해 고위험군에 해당할 수 있습니다.")
+
 
     if st.button("✅ 시뮬레이션 완료 → 처음으로"):
         for key in list(st.session_state.keys()):
