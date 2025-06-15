@@ -66,20 +66,32 @@ def show_section_info(df, env, section_index):
     icr = 10
     meal_carb = df.iloc[start:end]["CHO"].sum()
     correction = max((current_bg - target_bg), 0) / gf
-    meal_insulin = meal_carb / icr / 3
-    recommended_bolus = round(correction + meal_insulin / 3, 2)
+    meal_insulin = meal_carb / icr
+    recommended_bolus = round(correction + meal_insulin, 2)
 
-    col1, col2 = st.columns([1, 2])  # 비율 조정 가능
+    # 볼루스 주입 시점 계산 (식사 30분 전, CHO >= 30g인 경우만)
+    bolus_time_info = ""
+    main_meals = df.iloc[start:end][df["CHO"] >= 10]
+    if not main_meals.empty:
+        first_meal_time = pd.to_datetime(main_meals["Time"].iloc[0])
+        bolus_time = first_meal_time - pd.Timedelta(minutes=30)
+        df_section = df.iloc[start:end].reset_index(drop=True)
+        df_section["Time"] = pd.to_datetime(df_section["Time"])
+        bolus_idx = (df_section["Time"] - bolus_time).abs().idxmin()
+        bolus_time_info = f"🍚 주요 식사 감지됨: {first_meal_time.strftime('%H:%M')}\n💉 볼루스 인슐린은 `{bolus_time.strftime('%H:%M')}`에 1회 주입 예정 (step {bolus_idx})"
+
+    col1, col2 = st.columns([1, 2])
 
     with col1:
         st.image("CGM.png", caption="혈당 측정기", use_container_width=True)
 
     with col2:
-        # st.subheader(f"🔴 구간 {section_index + 1}")
         st.markdown(f"⏱ **시간**: {section_start_time.strftime('%H:%M')} ~ {section_end_time.strftime('%H:%M')}")
         st.markdown(f"🩸 **현재 혈당**: `{current_bg} mg/dL`")
         st.markdown(meal_info)
         st.markdown(f"📌 **활동 정보**: {activity}")
+        if bolus_time_info:
+            st.success(bolus_time_info)
 
     st.info(f"""
     ### 💉 권장 인슐린 계산 정보
@@ -91,13 +103,28 @@ def show_section_info(df, env, section_index):
 
     with st.expander("📘 인슐린 주입 기준 보기", expanded=False):
         st.markdown("""
-        - **볼루스 인슐린**: 식사량에 따라 설정합니다 (10g CHO 당 1.0 단위)
+        - **볼루스 인슐린**: 식사량에 따라 설정하며, 주요 식사 전 30분에 1회 주입합니다.
         - **기저 인슐린**: 식사와 관계없이 지속적으로 작용합니다 (보통 0.01~0.03 단위/step)
-        - 총 주입량은 `단위/step × 160 step / 3 (8시간)`으로 계산됩니다
+        - 총 주입량은 `단위/step × 160 step = 8시간`으로 계산됩니다
         """)
 
+def analyze_glucose_events(bg_series, time_series):
+    df_g = pd.DataFrame({"time": time_series, "bg": bg_series})
+    df_g["status"] = "정상"
+    df_g.loc[df_g["bg"] < 70, "status"] = "저혈당"
+    df_g.loc[df_g["bg"] > 180, "status"] = "고혈당"
 
+    df_g["group"] = (df_g["status"] != df_g["status"].shift()).cumsum()
+    events = df_g[df_g["status"] != "정상"].groupby("group")
 
+    messages = []
+    for _, group in events:
+        status = group["status"].iloc[0]
+        t_start = group["time"].iloc[0].strftime("%H:%M")
+        t_end = group["time"].iloc[-1].strftime("%H:%M")
+        messages.append(f"- **{t_start} ~ {t_end}** 사이에 **{status}** 발생")
+
+    return messages, df_g
 
 # 세션 상태 초기화
 if "step" not in st.session_state:
@@ -158,7 +185,7 @@ for seg in [1, 2, 3]:
         section_index = st.session_state.step - 21
         show_section_info(df, env, section_index)
         
-        dose = st.slider(f"구간 {seg} 볼루스 인슐린 (단위)", 0.0, 0.2, 0.05, 0.005, key=dose_key)
+        dose = st.slider(f"구간 {seg} 볼루스 인슐린 (단위)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
         basal = st.slider("기저 인슐린 (전 구간 적용)", 0.0, 0.05, st.session_state.get("dose_basal", 0.02), 0.001, key=f"basal{seg}")
 
         # 💉 총 인슐린 투여량 계산
@@ -180,8 +207,18 @@ for seg in [1, 2, 3]:
         if st.button(f"▶ 구간 {seg} 실행"):
             env = copy.deepcopy(st.session_state[env_init_key])
             result = []
-            for _ in range(160):
-                obs, _, _, _ = env.step(Action(basal=basal, bolus=dose))
+
+            # 1️⃣ 식사 시점 탐지 및 볼루스 주입 시점 설정
+            section_df = df.iloc[seg * 160 : (seg + 1) * 160]
+            meal_times = section_df[section_df["CHO"] >= 30].index.tolist()
+            bolus_step = None
+            if meal_times:
+                meal_step = meal_times[0] - section_df.index[0]  # 상대적 위치
+                bolus_step = max(meal_step - 10, 0)  # 30분 전
+
+            for t in range(160):
+                bolus = dose if bolus_step == t else 0.0
+                obs, _, _, _ = env.step(Action(basal=basal, bolus=bolus))
                 result.append(obs[0])
             st.session_state[bg_key] = result
             st.session_state[env_result_key] = copy.deepcopy(env)
@@ -209,16 +246,37 @@ for seg in [1, 2, 3]:
                 )
             )
             st.plotly_chart(fig, use_container_width=True)
+
+            # 📊 혈당 결과 해석
+            st.markdown("#### 🔍 혈당 결과 해석")
+            bg_final = result[-1]
+            if bg_final < 70:
+                st.warning(f"⚠️ 최종 혈당이 {bg_final:.1f} mg/dL로 저혈당입니다. 인슐린 용량을 줄여보세요.")
+            elif bg_final > 180:
+                st.warning(f"⚠️ 최종 혈당이 {bg_final:.1f} mg/dL로 고혈당입니다. 인슐린 용량을 늘려볼 수 있습니다.")
+            else:
+                st.success(f"✅ 최종 혈당 {bg_final:.1f} mg/dL — 안정적인 범위입니다.")
+
+            events, _ = analyze_glucose_events(result, time_range)
+            st.subheader("🩸 혈당 이상 구간 요약")
+            if events:
+                for msg in events:
+                    st.markdown(msg)
+            else:
+                st.success("✅ 모든 시간대에서 혈당이 정상 범위(70~180 mg/dL)를 유지했습니다.")
+
+
             
         if st.button(f"🔁 구간 {seg} 다시 설정"):
             if bg_key in st.session_state:
                 del st.session_state[bg_key]
-
+                
         if st.button("➡️ 다음 구간으로"):
             st.session_state.env_user = copy.deepcopy(st.session_state[env_result_key])
             st.session_state.dose_basal = basal
             st.session_state.step += 1
             st.rerun()
+
 
 # STEP 24: 결과 통합 시각화
 if st.session_state.step == 24:
