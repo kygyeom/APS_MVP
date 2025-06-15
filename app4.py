@@ -141,6 +141,56 @@ if st.session_state.step == 0:
         "adult#001", "adult#002", "adult#003",
         "adolescent#001", "adolescent#002", "adolescent#003",
     ])
+    st.markdown("""
+        ### 👨‍⚕️ 인슐린 제어 시뮬레이터 소개
+
+        이 시뮬레이터는 가상의 제1형 당뇨병 환자 데이터를 기반으로,  
+        **사용자가 직접 인슐린 주입량을 설정**하고,  
+        AI가 제어했을 때의 결과와 비교해볼 수 있는 학습형 플랫폼입니다.
+
+        ---
+
+        #### 🔍 시뮬레이션의 목적
+        - 혈당 조절에 있어 인슐린 주입 타이밍과 용량의 중요성을 체험합니다.
+        - AI 제어와 비교하여 사용자의 전략이 혈당 안정성에 어떤 영향을 미치는지 확인할 수 있습니다.
+        - 실제 당뇨병 치료에 사용되는 기저 인슐린(basal)과 식전 볼루스 인슐린(bolus)의 역할을 구분해 이해할 수 있습니다.
+
+        ---
+        """)
+    with st.expander("ℹ️ 기저 인슐린과 식전 볼루스 인슐린이란?"):
+        st.markdown("""
+        #### 💉 인슐린의 두 가지 유형
+
+        **1. 기저 인슐린 (Basal Insulin)**  
+        - 하루 종일 일정하게 분비되어 공복 혈당을 조절합니다.  
+        - 보통 하루 1~2회 또는 인슐린 펌프를 통해 지속적으로 주입됩니다.
+
+        **2. 식전 볼루스 인슐린 (Bolus Insulin)**  
+        - 식사 직전 주입하여 식사 후 급격히 상승하는 혈당을 조절합니다.  
+        - 탄수화물 섭취량과 혈당 수치에 따라 용량이 달라집니다.
+
+        ---
+
+        #### 🧠 요약 비교
+
+        | 구분 | 기저 인슐린 (Basal) | 식전 볼루스 인슐린 (Bolus) |
+        |------|--------------------|-----------------------------|
+        | 목적 | 공복 혈당 조절     | 식후 혈당 조절              |
+        | 주입 시기 | 하루 1~2회 또는 지속 주입 | 식사 직전               |
+        | 작용 시간 | 느리고 길게        | 빠르고 짧게               |
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        #### 📊 TIR(Time in Range)이란?
+        - TIR은 혈당이 70~180 mg/dL 범위 내에 있는 시간의 비율을 의미합니다.
+        - TIR이 높을수록 혈당이 안정적으로 유지되며, 당뇨병 관리가 잘 되고 있다는 지표로 사용됩니다.
+        - 본 시뮬레이터에서는 AI 제어와 사용자 제어의 TIR을 비교하여 제어 전략의 효과를 평가합니다.
+
+        ---
+
+        👉 아래에서 시뮬레이션할 환자를 선택한 후, 다음 단계로 이동해 주세요.
+        """)
+    
     if st.button("다음 단계로"):
         st.session_state.selected_patient = patient_name
         st.session_state.csv_file = f"{patient_name}_100_500.csv"
@@ -153,6 +203,72 @@ elif st.session_state.step == 1:
     df["Time"] = pd.to_datetime(df["Time"])
     st.session_df = df
     st.write(f"✅ {st.session_state.selected_patient} 데이터 로딩 완료")
+
+        # CSV 불러오기 (앱 시작 시 한 번만 실행되게 outside에 둘 수도 있음)
+    df_params = pd.read_csv("vpatient_params.csv")  # 경로에 맞게 수정
+
+    # 선택된 환자 이름
+    patient_name = st.session_state.selected_patient
+
+    # 해당 환자 데이터 필터링
+    patient_info = df_params[df_params["Name"] == patient_name]
+
+
+        # 정보가 존재할 경우 출력
+    if not patient_info.empty:
+        info = patient_info.iloc[0]
+
+        st.subheader(f"🧬 `{patient_name}` 환자 요약 정보")
+
+        # 그룹 분류
+        if "adolescent" in patient_name:
+            group = "청소년"
+        elif "adult" in patient_name:
+            group = "성인"
+        else:
+            group = "기타"
+
+        # 주요 생리학적 정보 출력
+        st.markdown(f"""
+        - **환자 그룹**: {group}  
+        - **몸무게 (BW)**: {info['BW']:.3f} kg  
+        - **인슐린 감수성 (u2ss)**: {info['u2ss']:.3f}  
+        - **간 포도당 생성률 (kp1)**: {info['kp1']:.2f}  
+        - **속효성 인슐린 흡수 속도 (ka1)**: {info['ka1']:.4f}  
+        - **복부 피하 인슐린 반응 (isc1ss)**: {info['isc1ss']:.2f}  
+        """)
+    else:
+        st.warning("선택한 환자의 정보를 찾을 수 없습니다.")
+
+    with st.expander("ℹ️ 혈당 조절 가이드", expanded=False):
+        st.markdown("""
+        ### 🔄 혈당 조절 과정 안내
+
+        1. **현재 혈당 확인**  
+        - CGM(연속혈당측정기)을 통해 실시간 혈당을 확인합니다.
+
+        2. **식사량 및 시점 파악**  
+        - 해당 구간 내 식사 여부, 탄수화물 섭취량(CHO)을 확인합니다.
+
+        3. **인슐린 계산 (추천값 제공)**  
+        - 목표 혈당: `110 mg/dL`  
+        - 감도 계수(GF): `50`  
+        - 탄수화물 인슐린 비율(ICR): `10g 당 1.0 단위`  
+        ➡️ 계산된 **추천 볼루스 인슐린**을 제공합니다.
+
+        4. **기저 & 볼루스 인슐린 주입**  
+        - **기저 인슐린**: 8시간 동안 일정하게 분산 주입 (예: 0.02 단위/step)  
+        - **볼루스 인슐린**: 식사 30분 전에 한 번에 주입
+
+        5. **시뮬레이션 실행**  
+        - 설정한 인슐린 주입량에 따라 8시간 혈당 반응을 시뮬레이션합니다.
+
+        6. **결과 분석 및 피드백**  
+        - 최종 혈당이 정상 범위(70~180 mg/dL)인지 확인  
+        - 고혈당/저혈당 발생 시간 요약  
+        - 인슐린 용량 조절에 대한 피드백을 제공합니다.
+            """)
+
     if st.button("➡️ 시뮬레이션 시작"):
         st.session_state.step = 21
         st.rerun()
@@ -174,7 +290,7 @@ for seg in [1, 2, 3]:
             st.session_state.env_user = env_user
 
         env = st.session_state.env_user
-        st.subheader(f"🧪 구간 {seg}: {(seg - 1) * 6}~{seg * 6} 시간")
+        # st.subheader(f"🧪 구간 {seg}: {(seg - 1) * 6}~{seg * 6} 시간")
 
         dose_key = f"dose{seg}"
         bg_key = f"bg_user{seg}"
@@ -185,7 +301,7 @@ for seg in [1, 2, 3]:
         section_index = st.session_state.step - 21
         show_section_info(df, env, section_index)
         
-        dose = st.slider(f"구간 {seg} 볼루스 인슐린 (단위)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
+        dose = st.slider(f"볼루스 인슐린 (단위)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
         basal = st.slider("기저 인슐린 (전 구간 적용)", 0.0, 0.05, st.session_state.get("dose_basal", 0.02), 0.001, key=f"basal{seg}")
 
         # 💉 총 인슐린 투여량 계산
@@ -224,27 +340,74 @@ for seg in [1, 2, 3]:
             st.session_state[env_result_key] = copy.deepcopy(env)
 
             # ⏱ x축: 시작 시간 + 3분 간격 × 스텝
-            start_time = datetime.datetime.strptime("00:00", "%H:%M") + datetime.timedelta(minutes=(seg - 1) * 160 * 3)
+            start_time = datetime.datetime.strptime("00:00", "%H:%M") + datetime.timedelta(minutes=seg * 160 * 3)
             time_range = [start_time + datetime.timedelta(minutes=3 * i) for i in range(160)]
 
-            # 📈 시각화
+            # 🥗 현재 구간에 해당하는 식사량 시계열
+            section_df = df.iloc[seg * 160 : (seg + 1) * 160].reset_index(drop=True)
+            meal_series = section_df["CHO"].tolist()
+
+            # 📈 복합 시각화
             fig = go.Figure()
+
+            # ✅ 1. 정상 범위 음영 (70~180 mg/dL)
+            fig.add_shape(
+                type="rect",
+                xref="x", yref="y",
+                x0=time_range[0], x1=time_range[-1],
+                y0=70, y1=180,
+                fillcolor="green",
+                opacity=0.2,
+                layer="below",
+                line_width=0,
+            )
+
+
+            # 1️⃣ 혈당 선 그래프
             fig.add_trace(go.Scatter(
                 x=time_range,
                 y=result,
                 mode="lines",
-                name=f"구간 {seg} 결과",
-                line=dict(color="red")
+                name="혈당 (mg/dL)",
+                line=dict(color="red"),
+                yaxis="y1"
             ))
+
+            # 2️⃣ 식사량 막대 그래프
+            fig.add_trace(go.Bar(
+                x=time_range,
+                y=meal_series,
+                name="식사량 (CHO g)",
+                marker_color="lightblue",
+                opacity=0.6,
+                yaxis="y2"
+            ))
+
+            # 📐 그래프 레이아웃
             fig.update_layout(
-                title=f"구간 {seg} 혈당 반응",
-                xaxis_title="시간 (시:분)",
-                yaxis_title="혈당 (mg/dL)",
+                title=f"구간 {seg} 혈당 및 식사량",
                 xaxis=dict(
+                    title="시간 (시:분)",
                     tickformat="%H:%M",
                     tickangle=45
-                )
+                ),
+                yaxis=dict(
+                    title="혈당 (mg/dL)",
+                    range=[40, max(result) + 20],
+                    side="left"
+                ),
+                yaxis2=dict(
+                    title="식사량 (g)",
+                    overlaying="y",
+                    side="right",
+                    showgrid=False,
+                    range=[0, max(meal_series) + 10 if any(meal_series) else 10]
+                ),
+                legend=dict(x=0.01, y=1.1, orientation="h"),
+                bargap=0.1
             )
+
+            # 📊 렌더링
             st.plotly_chart(fig, use_container_width=True)
 
             # 📊 혈당 결과 해석
@@ -270,7 +433,7 @@ for seg in [1, 2, 3]:
         if st.button(f"🔁 구간 {seg} 다시 설정"):
             if bg_key in st.session_state:
                 del st.session_state[bg_key]
-                
+
         if st.button("➡️ 다음 구간으로"):
             st.session_state.env_user = copy.deepcopy(st.session_state[env_result_key])
             st.session_state.dose_basal = basal
