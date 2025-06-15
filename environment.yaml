@@ -1,0 +1,16 @@
+channels:
+- defaults
+- conda-forge
+dependencies:
+- python=3.9
+- pandas
+- numpy
+- plotly
+- streamlit
+- matplotlib
+- scikit-learn
+- pip
+- pip:
+  - simglucose
+  - streamlit-vertical-slider
+name: insulin-sim
