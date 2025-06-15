@@ -385,7 +385,7 @@ elif st.session_state.step == 2:
         dose_bolus = [dose1]*120 + [dose2]*120 + [dose3]*120 +[dose4]*120
         sim_step = 480
     
-    
+
     st.session_state.doses = dose_bolus
 
     # 초기 혈당 설정
