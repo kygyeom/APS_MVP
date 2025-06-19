@@ -481,7 +481,7 @@ for seg in [1, 2, 3]:
 
             # 1️⃣ 식사 시점 탐지 및 볼루스 주입 시점 설정
             section_df = df.iloc[seg * 160 : (seg + 1) * 160]
-            meal_times = section_df[section_df["CHO"] >= 30].index.tolist()
+            meal_times = section_df[section_df["CHO"] >= 10].index.tolist()
             bolus_step = None
             if meal_times:
                 st.write("meal_times1:", meal_times) 
