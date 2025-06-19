@@ -482,7 +482,6 @@ for seg in [1, 2, 3]:
             meal_times = section_df[section_df["CHO"] >= 10].index.tolist()
             bolus_step = None
             if meal_times:
-                st.write("meal_times1:", meal_times) 
                 meal_step = meal_times[0] - section_df.index[0]
                 bolus_step = max(meal_step - 10, 0)
 
