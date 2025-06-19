@@ -456,7 +456,9 @@ for seg in [1, 2, 3]:
         # dose = st.slider(f"볼루스 인슐린 (식사 30분전 주입)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
         dose = st.slider("볼루스 인슐린", 0.0, 5.0, st.session_state.get("dose1", 1.0), key="dose1")
         basal = st.slider("기저 인슐린 (8시간 동안 주입)", 0.0, 0.05, st.session_state.get("dose_basal", 0.02), 0.001, key=f"basal{seg}")
+        st.write("dose 설정값1:", dose)
 
+        
         # 💉 총 인슐린 투여량 계산
         total_basal = round(basal * 160, 2)  # 160 스텝 동안의 총 기저 인슐린
         total_bolus = dose                   # 한 번에 주입
@@ -482,10 +484,13 @@ for seg in [1, 2, 3]:
             meal_times = section_df[section_df["CHO"] >= 30].index.tolist()
             bolus_step = None
             if meal_times:
+                st.write("meal_times1:", meal_times) 
                 meal_step = meal_times[0] - section_df.index[0]
                 bolus_step = max(meal_step - 10, 0)
+                st.write("bolus_step1:", bolus_step) 
 
             for t in range(160):
+                st.write("bolus_step2:", bolus_step)
                 bolus = dose if bolus_step is not None and bolus_step == t else 0.0
                 obs, _, _, _ = env.step(Action(basal=basal, bolus=bolus))
                 result.append(obs[0])
@@ -499,7 +504,7 @@ for seg in [1, 2, 3]:
             # 🥗 현재 구간에 해당하는 식사량 시계열
             section_df = df.iloc[seg * 160 : (seg + 1) * 160].reset_index(drop=True)
             meal_series = section_df["CHO"].tolist()
-            
+
             st.write("dose 설정값:", dose)
             st.write("bolus_step:", bolus_step)
             st.write("meal_times:", meal_times)
