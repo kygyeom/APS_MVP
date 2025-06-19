@@ -453,7 +453,8 @@ for seg in [1, 2, 3]:
         section_index = st.session_state.step - 21
         show_section_info(df, env, section_index)
         
-        dose = st.slider(f"볼루스 인슐린 (식사 30분전 주입)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
+        # dose = st.slider(f"볼루스 인슐린 (식사 30분전 주입)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
+        dose = st.slider("볼루스 인슐린", 0.0, 5.0, st.session_state.get("dose1", 1.0), key="dose1")
         basal = st.slider("기저 인슐린 (8시간 동안 주입)", 0.0, 0.05, st.session_state.get("dose_basal", 0.02), 0.001, key=f"basal{seg}")
 
         # 💉 총 인슐린 투여량 계산
@@ -481,11 +482,11 @@ for seg in [1, 2, 3]:
             meal_times = section_df[section_df["CHO"] >= 30].index.tolist()
             bolus_step = None
             if meal_times:
-                meal_step = meal_times[0] - section_df.index[0]  # 상대적 위치
-                bolus_step = max(meal_step - 10, 0)  # 30분 전
+                meal_step = meal_times[0] - section_df.index[0]
+                bolus_step = max(meal_step - 10, 0)
 
             for t in range(160):
-                bolus = dose if bolus_step == t else 0.0
+                bolus = dose if bolus_step is not None and bolus_step == t else 0.0
                 obs, _, _, _ = env.step(Action(basal=basal, bolus=bolus))
                 result.append(obs[0])
             st.session_state[bg_key] = result
