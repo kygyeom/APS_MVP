@@ -499,6 +499,10 @@ for seg in [1, 2, 3]:
             # 🥗 현재 구간에 해당하는 식사량 시계열
             section_df = df.iloc[seg * 160 : (seg + 1) * 160].reset_index(drop=True)
             meal_series = section_df["CHO"].tolist()
+            
+            st.write("dose 설정값:", dose)
+            st.write("bolus_step:", bolus_step)
+            st.write("meal_times:", meal_times)
 
             # 📈 복합 시각화
             fig = go.Figure()
