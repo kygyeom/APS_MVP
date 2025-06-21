@@ -472,7 +472,7 @@ for seg in [1, 2, 3]:
 
 
         st.markdown("슬라이더를 움직여 인슐린 주입량을 조절해 보세요")
-        st.markdown("권장양은 참고사항으로 상황에 따라 유동적으로 조절해야합니다.")
+        st.markdown("권장량은 참고사항으로 상황에 따라 유동적으로 조절해야합니다.")
         # dose = st.slider(f"볼루스 인슐린 (식사 30분전 주입)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
         dose = st.slider("볼루스 인슐린 (식사전 주요입)", 0.0, 5.0, st.session_state.get("dose1", 1.0), key="dose1")
         basal = st.slider("기저 인슐린 (8시간 동안 주입)", 0.0, 0.05, st.session_state.get("dose_basal", 0.02), 0.001, key=f"basal{seg}")
