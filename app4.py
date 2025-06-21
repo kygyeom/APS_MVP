@@ -86,8 +86,8 @@ def show_section_info(df, env, section_index):
             estimated_kcal = int(cho * 4)  # 탄수화물 1g = 약 4 kcal
 
             meal_events.append(
-                f"{time}쯤에 {food}를 먹었어요. "
-                f"탄수화물 약 {cho}g → 약 {estimated_kcal} kcal 정도 됩니다."
+                f"{time}쯤에 {food}를 먹었어요. \n 탄수화물 약 {cho}g → 약 {estimated_kcal} kcal 정도 됩니다."
+            
             )
 
         meal_info = "🍽 식사 기록 요약:\n- " + "\n- ".join(meal_events)
@@ -120,27 +120,29 @@ def show_section_info(df, env, section_index):
         df_section = df.iloc[start:end].reset_index(drop=True)
         df_section["Time"] = pd.to_datetime(df_section["Time"])
         bolus_idx = (df_section["Time"] - bolus_time).abs().idxmin()
-        bolus_time_info = f"🍚 주요 식사 감지됨: {first_meal_time.strftime('%H:%M')}\n💉 볼루스 인슐린은 `{bolus_time.strftime('%H:%M')}`에 1회 주입 예정 (step {bolus_idx})"
+        bolus_time_info = f"🍚 주요 식사 감지됨: {first_meal_time.strftime('%H:%M')}\n💉 볼루스 인슐린은 `{bolus_time.strftime('%H:%M')}`에 1회 주입)"
 
-    st.markdown(f"⏱ **시간**: {section_start_time.strftime('%H:%M')} ~ {section_end_time.strftime('%H:%M')}, {activity}")
+    st.subheader("1. 먼저 환자의 지금 상황을 파악해 보세요.")
     col1, col2 = st.columns([1, 2])
     
     with col1:
         st.image("CGM.png", caption="혈당 측정기", use_container_width=True)
-
     with col2:
+        st.success(f"⏱ 이번 시간은: {section_start_time.strftime('%H:%M')} ~ {section_end_time.strftime('%H:%M')}이며, {activity}입니다.")
+        st.success(f"🩸 센서로 **측정된 현재 혈당** `{current_bg} mg/dL`입니다")
+        st.success("혈당의 권장 범위는 70~180 mg/dL입니다.")
+        st.success(meal_info)
 
-        st.markdown(f"🩸 **측정된 현재 혈당**: `{current_bg} mg/dL`, 권장 범위: 70~180 mg/dL")
-        st.markdown(meal_info)
-        if bolus_time_info:
-            st.success(bolus_time_info)
-
+    st.subheader("2. 혈당을 낮추는데 필요한 인슐린 양을 계산해 보세요.")
+    if bolus_time_info:
+        st.success(bolus_time_info)
     st.info(f"""
     ### 💉 권장 인슐린 계산 정보
-    - 목표 혈당: {target_bg} mg/dL
+    - 목표 혈당: {target_bg} mg/dL산
     - 감도 계수(GF): {gf}, ICR: {icr}
     - 예상 식사량: **{meal_carb:.1f} g 탄수화물**
-    ➡️ 권장 볼루스 인슐린: **{recommended_bolus} 단위**
+    - 권장 볼루스 인슐린: **{recommended_bolus}**
+    - 권장 기저 인슐린: **0.03 ~ 0.04**
     """)
 
     with st.expander("📘 인슐린 주입 기준 보기", expanded=False):
@@ -233,7 +235,6 @@ def summarize_today(basal_list, bolus_list, meal_total, bg_series):
 
     return "\n".join(summary)
 
-
 # 세션 상태 초기화
 if "step" not in st.session_state:
     st.session_state.step = 0
@@ -267,6 +268,7 @@ if st.session_state.step == 0:
     당뇨병 환자에게 인슐린 조절은 매일 반복되는 과제입니다.  
     그중에서도 **식사와 혈당 측정**은 생명과 직결된 요소입니다.
     """)
+    
     # ⏱ 혈당 조절 관련 팩트 카드
     with st.expander("🩸 혈당 스파이크란?"):
         st.markdown("""
@@ -462,14 +464,14 @@ for seg in [1, 2, 3]:
         total_bolus = dose                   # 한 번에 주입
         total_insulin = round(total_basal + total_bolus, 2)
 
-        # 💬 사용자에게 보여주기
-        st.markdown(f"""
-        🔢 **8시간 총 인슐린 투여량**  
-        - 💧 기저 인슐린: `{basal} × 160 = {total_basal} 단위`  
-        - 💉 볼루스 인슐린: `{total_bolus} 단위`  
-        - ✅ **총 투여량**: `{total_insulin} 단위`
-        """)
-
+        # # 💬 사용자에게 보여주기
+        # st.markdown(f"""
+        # 🔢 **8시간 총 인슐린 투여량**  
+        # - 💧 기저 인슐린: `{basal} × 160 = {total_basal} 단위`  
+        # - 💉 볼루스 인슐린: `{total_bolus} 단위`  
+        # - ✅ **총 투여량**: `{total_insulin} 단위`
+        # """)
+        st.subheader("3. 인슐린 주입 후 환자의 혈당 변화를 확인해 보세요.")
         if env_init_key not in st.session_state:
             st.session_state[env_init_key] = copy.deepcopy(env)
 
