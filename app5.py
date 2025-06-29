@@ -763,6 +763,29 @@ if st.session_state.step == 34:
     </div>
     """, unsafe_allow_html=True)
 
+    st.subheader("📎 더 알고 싶다면?")
+    st.markdown("""
+        3분간의 체험을 마치셨나요?<br>
+        실제 인공지능 기반 혈당 제어 시스템이 궁금하다면 아래 버튼을 눌러주세요.
+    """, unsafe_allow_html=True)
+    st.markdown("")
+    st.markdown("""
+        <a href="https://glucous.oopy.io/" target="_blank">
+            <button style="padding: 0.8em 1.2em; font-size: 18px; background-color: #0052cc; color: white; border: none; border-radius: 8px;">
+                🔗 GlucoUS 소개 보러가기
+            </button>
+        </a>
+    """, unsafe_allow_html=True)
+    st.subheader("여러분의 시뮬레이션 체험과 피드백이 더 나은 솔루션을 만드는 데 큰 힘이 됩니다.")
+    
+    st.markdown("""
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSf64EDGVz_WjDBDI_7ordqyIj46yL5iVFJZlxoy4TetYZYLRg/viewform?usp=sharing&ouid=104854244764013613953" target="_blank">
+            <button style="padding: 0.8em 1.2em; font-size: 18px; background-color: #0052cc; color: white; border: none; border-radius: 8px;">
+                🔗 더 나은 서비스를 위한 피드백
+            </button>
+        </a>
+    """, unsafe_allow_html=True)
+
     st.markdown("🙋 다른 환자 시나리오도 체험해 보시겠어요?")
 
 
