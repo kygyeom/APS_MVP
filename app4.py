@@ -470,7 +470,6 @@ for seg in [1, 2, 3]:
         section_index = st.session_state.step - 21
         show_section_info(df, env, section_index)
 
-
         st.markdown("슬라이더를 움직여 인슐린 주입량을 조절해 보세요")
         st.markdown("권장량은 참고사항으로 상황에 따라 유동적으로 조절해야합니다.")
         # dose = st.slider(f"볼루스 인슐린 (식사 30분전 주입)", 0.0, 5.0, 1.0, 0.1, key=dose_key)
@@ -489,6 +488,7 @@ for seg in [1, 2, 3]:
         # - 💉 볼루스 인슐린: `{total_bolus} 단위`  
         # - ✅ **총 투여량**: `{total_insulin} 단위`
         # """)
+
         st.subheader("3. 인슐린 주입 후 환자의 혈당 변화를 확인해 보세요.")
         if env_init_key not in st.session_state:
             st.session_state[env_init_key] = copy.deepcopy(env)
@@ -534,7 +534,6 @@ for seg in [1, 2, 3]:
                 layer="below",
                 line_width=0,
             )
-
 
             # 1️⃣ 혈당 선 그래프
             fig.add_trace(go.Scatter(
