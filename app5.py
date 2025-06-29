@@ -121,7 +121,7 @@ if st.session_state.step == 0:
 elif st.session_state.step == 1:
     df = pd.read_csv(f"data/{st.session_state.csv_file}")
     df["Time"] = pd.to_datetime(df["Time"])
-    st.session_df = df
+    st.session_state.session_df = df
     st.write(f"✅ {st.session_state.selected_patient} 데이터 로딩 완료")
 
     # CSV 불러오기 (앱 시작 시 한 번만 실행되게 outside에 둘 수도 있음)
@@ -200,7 +200,10 @@ elif st.session_state.step == 1:
         st.rerun()
 
 for seg in [1, 2, 3]:
-    df = st.session_df
+    df = st.session_state.get("session_df")
+    if df is None:
+        # st.error("❌ 데이터가 아직 로딩되지 않았습니다. 처음부터 다시 시도해 주세요.")
+        st.stop()
     section_df = df.iloc[seg * 160 : (seg + 1) * 160].reset_index(drop=True)
     bg_now = section_df["BG"].iloc[0]
     meal_total = section_df["CHO"].sum()
@@ -269,9 +272,9 @@ for seg in [1, 2, 3]:
     # 2단계: 식사 확인
     elif st.session_state.step == meal_step:
         st.image("meal.png")
-        st.subheader(f"📈 {seg}구간 - 시간")
+        st.subheader(f"📈 {seg}/3구간 - 식사 확인")
         st.markdown(f"⏱️시간대: **{start_time_str} ~ {end_time_str}**")    
-        st.subheader(f"🍽️ {seg}구간 - 식사 확인")
+        # st.subheader(f"🍽️ {seg}구간 - 식사 확인")
         # st.markdown(f"이번 구간 섭취량: **{meal_total:.1f} g**")
         meal_df = df.iloc[start:end][df["CHO"] > 0]
 
@@ -281,7 +284,7 @@ for seg in [1, 2, 3]:
                 time = pd.to_datetime(row["Time"]).strftime("%H:%M")
                 cho = round(row["CHO"], 1)
 
-                # 음식 예시와 칼로리 추정
+                # 음식 예시와 칼로리 추정인
                 if cho < 10:
                     food = "딸기 한 줌 🍓 / 우유 1컵 🥛"
                 elif cho < 20:
@@ -324,8 +327,7 @@ for seg in [1, 2, 3]:
 
     # 3단계: 인슐린 입력
     elif st.session_state.step == input_step:
-        st.subheader(f"💉 {seg}구간 - 인슐린 조절")
-        st.subheader(f"📈 {seg}구간 - 시간")
+        st.subheader(f"💉 {seg}구간/3 - 인슐린 조절")
         st.markdown(f"⏱️시간대: **{start_time_str} ~ {end_time_str}**")    
        
 
@@ -359,9 +361,9 @@ for seg in [1, 2, 3]:
         """, unsafe_allow_html=True)
 
 
-        # st.cache("슬라이더를 움직여 인슐린 주입량을 조절해 보세요")
-        dose = st.slider("볼루스 인슐린(식사시 주입)", 0.0, 5.0, value=st.session_state[dose_key], key=dose_key)
-        basal = st.slider("기저 인슐린(평소에 주입)", 0.0, 0.05, value=st.session_state[basal_key], step=0.001, key=basal_key)
+        st.markdown("권장량을 참고해 슬라이더를 움직여 인슐린 주입량을 조절해 보세요")
+        dose = st.slider("볼루스 인슐린 조절 (식사시 주입)", 0.0, 5.0, value=st.session_state[dose_key], key=dose_key)
+        basal = st.slider("기저 인슐린 조절 (평소에 주입)", 0.0, 0.05, value=st.session_state[basal_key], step=0.001, key=basal_key)
 
         if seg == 1 and env_key not in st.session_state:
             sensor = CGMSensor.withName("Dexcom")
@@ -381,7 +383,7 @@ for seg in [1, 2, 3]:
 
     # 4단계: 결과 분석
     elif st.session_state.step == result_step:
-        st.subheader(f"📈 {seg}구간 - 결과 분석")
+        st.subheader(f"📈 {seg}/3 구간 - 결과 분석")
         st.markdown(f"⏱️시간대: **{start_time_str} ~ {end_time_str}**")    
        
 
@@ -413,7 +415,7 @@ for seg in [1, 2, 3]:
         fig.add_trace(go.Scatter(x=time_range, y=result, mode="lines", name="혈당", line=dict(color="red"), yaxis="y1"))
         fig.add_trace(go.Bar(x=time_range, y=section_df["CHO"], name="식사량", marker_color="lightblue", yaxis="y2"))
         fig.update_layout(
-            title=f"구간 {seg} 혈당 및 식사량",
+            title=f"구간 {seg}/3 혈당 및 식사량",
             xaxis=dict(title="시간", tickangle=45),
             yaxis=dict(title="혈당", side="left", range=[40, max(result) + 20]),
             yaxis2=dict(title="식사량", overlaying="y", side="right"),
