@@ -31,8 +31,8 @@ def get_random_persona(group: str, weight: float):
     persona_dict = {
         "청소년": [
             {"id":"p1", "name": "민석", "gender": "남자", "weight_range": (60, 75), "desc": "운동을 좋아하는 고등학생", "emoji": "👦"},
-            {"id":"p2","name": "하린", "gender": "여자", "weight_range": (30, 42), "desc": "소식가, 과일 위주 식단", "emoji": "👧"},
-            {"id":"p3","name": "지후", "gender": "남자", "weight_range": (40, 62), "desc": "아침 자주 거르고 부모가 관리", "emoji": "👦"},
+            {"id":"p2","name": "지후", "gender": "남자", "weight_range": (30, 42), "desc": "소식가, 과일 위주 식단", "emoji": "👦"},
+            {"id":"p3","name": "하린", "gender": "여자", "weight_range": (40, 62), "desc": "아침 자주 거르고 부모가 관리", "emoji": "👧"},
         ],
 
         "성인": [
