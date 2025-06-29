@@ -30,15 +30,15 @@ def get_random_persona(group: str, weight: float):
     # 페르소나 사전
     persona_dict = {
         "청소년": [
-            {"id":"p1", "name": "민석", "gender": "남", "weight_range": (55, 75), "desc": "운동을 좋아하는 고등학생", "emoji": "👦"},
-            {"id":"p2","name": "하린", "gender": "여", "weight_range": (35, 55), "desc": "소식가, 과일 위주 식단", "emoji": "👧"},
-            {"id":"p3","name": "지후", "gender": "남", "weight_range": (40, 60), "desc": "아침 자주 거르고 부모가 관리", "emoji": "👦"},
+            {"id":"p1", "name": "민석", "gender": "남자", "weight_range": (60, 75), "desc": "운동을 좋아하는 고등학생", "emoji": "👦"},
+            {"id":"p2","name": "하린", "gender": "여자", "weight_range": (30, 42), "desc": "소식가, 과일 위주 식단", "emoji": "👧"},
+            {"id":"p3","name": "지후", "gender": "남자", "weight_range": (40, 62), "desc": "아침 자주 거르고 부모가 관리", "emoji": "👦"},
         ],
 
         "성인": [
-            {"id":"p4","name": "재훈", "gender": "남", "weight_range": (70, 110), "desc": "앉아서 일하는 직장인", "emoji": "👨"},
-            {"id":"p5","name": "지민", "gender": "여", "weight_range": (60, 85), "desc": "주부, 간식 자주 먹음", "emoji": "👩"},
-            {"id":"p6","name": "보미", "gender": "여", "weight_range": (45, 65), "desc": "운동 강사, 고강도 운동", "emoji": "👩"},
+            {"id":"p4","name": "재훈", "gender": "남자", "weight_range": (85, 110), "desc": "앉아서 일하는 직장인", "emoji": "👨"},
+            {"id":"p5","name": "지민", "gender": "여자", "weight_range": (75, 87), "desc": "주부, 간식 자주 먹음", "emoji": "👩"},
+            {"id":"p6","name": "보미", "gender": "여자", "weight_range": (50, 80), "desc": "운동 강사, 고강도 운동", "emoji": "👩"},
         ]
     }
 
@@ -73,6 +73,52 @@ def analyze_glucose_events(bg_series, time_series):
 
     return messages, df_g
 
+def summarize_today(basal_list, bolus_list, meal_total, bg_series):
+    summary = []
+
+    # 총량 계산
+    basal_total = sum(basal_list)
+    bolus_total = sum(bolus_list)
+    insulin_total = basal_total + bolus_total
+
+    # # 1. 인슐린 총량 평가
+    # if insulin_total > 10:
+    #     summary.append("💉 인슐린을 전반적으로 많이 사용했습니다.")
+    # elif insulin_total < 5:
+    #     summary.append("💉 인슐린 사용량이 다소 부족했습니다.")
+    # else:
+    #     summary.append("💉 인슐린 용량은 적절한 수준이었습니다.")
+
+    # 2. 식사량 평가
+    if meal_total > 150:
+        summary.append("🍚 오늘 섭취한 탄수화물 양이 많아 혈당 조절이 어려웠을 수 있습니다.")
+    elif meal_total < 50:
+        summary.append("🥛 식사량이 적어 저혈당 위험이 있을 수 있습니다.")
+    else:
+        summary.append("🥗 적절한 식사량이 유지되었습니다.")
+
+    # 3. 혈당 패턴 평가
+    hypo = sum(bg < 70 for bg in bg_series)
+    hyper = sum(bg > 180 for bg in bg_series)
+
+    if hypo > 5:
+        summary.append("⚠️ 저혈당이 여러 차례 발생했습니다. 기저 인슐린을 줄이는 것이 좋겠습니다.")
+    elif hyper > 5:
+        summary.append("⚠️ 고혈당이 자주 발생했습니다. 식사량을 조절하거나 볼루스 인슐린을 늘려야 할 수 있습니다.")
+    else:
+        summary.append("✅ 혈당이 안정적으로 유지되었습니다.")
+
+    # 종합 제안
+    if hyper > 5 and meal_total > 150:
+        summary.append("📌 식사량을 줄이거나 식후 가벼운 운동을 병행하면 혈당 조절에 도움이 됩니다.")
+    elif hypo > 5 and insulin_total > 10:
+        summary.append("📌 인슐린 용량을 줄이고 간식을 적절히 배분하는 것이 필요합니다.")
+    elif 0 < hypo <= 5 or 0 < hyper <= 5:
+        summary.append("📌 혈당 조절이 거의 잘 되었으나 약간의 보완 여지가 있습니다.")
+
+    return "\n".join(summary)
+
+
 if st.session_state.get("trigger_scroll", False):
     components.html("""
         <script>
@@ -87,8 +133,7 @@ if "step" not in st.session_state:
 if "selected_patient" not in st.session_state:
     st.session_state.selected_patient = None
 
-st.title("🩺 인슐린 제어 시뮬레이터")
-
+st.title("🩺 당뇨환자의 하루")
 # STEP 0: 환자 선택
 if st.session_state.step == 0:
 
@@ -107,8 +152,8 @@ if st.session_state.step == 0:
 
     st.subheader("환자 선택")
     patient_name = st.selectbox("알아보고 싶은 환자를 선택하세요:", [
-        "adult#001", "adult#002", "adult#003","adult#004", "adult#005",
-        "adolescent#001", "adolescent#002", "adolescent#003","adolescent#004", "adolescent#005",
+        "adult#001", "adult#003", "adult#006",
+        "adolescent#001", "adolescent#004", "adolescent#007",
     ])
     
     if st.button("다음 단계로"):
@@ -239,6 +284,8 @@ for seg in [1, 2, 3]:
     # 혈당 확인 UI 출력
     if st.session_state.step == bg_step:
         st.image("BG.png")
+        st.subheader(f"📈 {seg}/3구간 - 혈당 측정")
+
         # 혈당 상태 분류
         if bg_now < 70:
             status_label = "저혈당"
@@ -260,7 +307,7 @@ for seg in [1, 2, 3]:
                         현재 혈당 상태: <b style='color:{status_color};'>{bg_now:.1f} mg/dL</b> {status_label} 
                     </p>
                     <p style='font-size: 18px; color: #333;'>{status_message}</p>
-                    ※ 정상 혈당 범위는 <b>70~180 mg/dL</b>입니다.
+                    <p style='font-size: 18px; color: #333;'>※ 정상 혈당 범위는 <b>70~180 mg/dL</b>입니다.
                 </div>
             """, unsafe_allow_html=True)
         st.markdown("")
@@ -327,9 +374,7 @@ for seg in [1, 2, 3]:
 
     # 3단계: 인슐린 입력
     elif st.session_state.step == input_step:
-        st.subheader(f"💉 {seg}구간/3 - 인슐린 조절")
-        st.markdown(f"⏱️시간대: **{start_time_str} ~ {end_time_str}**")    
-       
+        st.image("insulin.png")
 
         target_bg = 110
         gf = 50
@@ -360,8 +405,10 @@ for seg in [1, 2, 3]:
         </div>
         """, unsafe_allow_html=True)
 
+        st.subheader(f"💉 {seg}/3 구간 - 인슐린 조절")
+        st.markdown(f"⏱️시간대: **{start_time_str} ~ {end_time_str}**")    
 
-        st.markdown("권장량을 참고해 슬라이더를 움직여 인슐린 주입량을 조절해 보세요")
+        st.subheader("권장량을 참고해 슬라이더를 움직여 인슐린 주입량을 조절해 보세요")
         dose = st.slider("볼루스 인슐린 조절 (식사시 주입)", 0.0, 5.0, value=st.session_state[dose_key], key=dose_key)
         basal = st.slider("기저 인슐린 조절 (평소에 주입)", 0.0, 0.05, value=st.session_state[basal_key], step=0.001, key=basal_key)
 
@@ -450,11 +497,37 @@ for seg in [1, 2, 3]:
         elif "저혈당" in statuses:
             img_suffix = "-2"
 
+        # 상태 메시지와 조치 안내
+        if "고혈당" in statuses:
+            img_suffix = "-1"
+            st.error("⚠️ **고혈당 상태입니다. (혈당 > 180 mg/dL)**")
+            st.markdown("""
+            - 당장은 위험하지 않지만, **지속되면 합병증의 위험**이 있습니다.
+            - 💡 **운동** 또는 **볼루스 인슐린** 주입을 고려하세요.
+            - 식사를 했다면, **ICR에 맞는 인슐린 용량**을 입력했는지 확인해보세요.
+            """)
+            
+        elif "저혈당" in statuses:
+            img_suffix = "-2"
+            st.warning("🚨 **저혈당 상태입니다. (혈당 < 70 mg/dL)**")
+            st.markdown("""
+            - 현재 위험할 수 있는 상태입니다. **즉시 빠른 탄수화물(예: 사탕, 주스)을 섭취하세요.**
+            - 이후 혈당을 **15분 단위로 다시 확인**하고 필요 시 반복하세요.
+            - 기저 인슐린이 과도했을 가능성도 있으니 **베이스 인슐린 용량을 확인**해보세요.
+            """)
+
+        else:
+            img_suffix = ""
+            st.success("✅ 현재 혈당은 정상 범위입니다. (70~180 mg/dL)")
+            st.markdown("""
+            - 지금은 **안정적인 혈당 상태**입니다.
+            - 식사나 운동 계획에 따라 적절한 인슐린 조절을 이어가세요.
+            """)
 
         img_path = f"./patient_images/{persona_id}{img_suffix}.png"
         # 이미지 출력
         if os.path.exists(img_path):
-            st.image(Image.open(img_path), caption=f"현재 상태: {last_status}", use_container_width=True)
+            st.image(Image.open(img_path), caption=f"환자의 상태: {statuses}", use_container_width=True)
         else:
             st.warning("해당 상태에 맞는 이미지가 없습니다.")
 
@@ -467,14 +540,235 @@ for seg in [1, 2, 3]:
             st.rerun()
 
 if st.session_state.step == 33:
-    st.header("📊 하루 요약 리포트")
-    tir_values = []
-    for seg in [1, 2, 3]:
-        bg = st.session_state.get(f"bg_user{seg}", [])
-        if bg:
-            tir = sum(70 <= g <= 180 for g in bg) / len(bg) * 100
-            tir_values.append(tir)
-            st.markdown(f"- {seg}구간 TIR: **{tir:.1f}%**")
-    if tir_values:
-        avg = sum(tir_values) / len(tir_values)
-        st.success(f"👉 전체 평균 TIR: **{avg:.1f}%**")
+    st.subheader("✅ 전체 시뮬레이션 결과 요약")
+
+    
+    fig = go.Figure()
+    full_bg = []
+    full_bolus = []
+    full_basal = []
+
+    # 샘플 타임스탬프 생성 (3분 간격, 총 480개: 24시간 분량)
+    start_time = datetime.datetime.strptime("00:00", "%H:%M")
+    time_range = [start_time + datetime.timedelta(minutes=3 * i) for i in range(480)]
+
+    # 데이터 로드
+    df = pd.read_csv(f"data/{st.session_state.csv_file}")
+    df["Time"] = pd.to_datetime(df["Time"])
+
+    for i in range(1, 4):
+        bg_key = f"bg_user{i}"
+        dose_key = f"dose{i}"
+        if bg_key in st.session_state:
+            full_bg.extend(st.session_state[bg_key])
+            dose_value = st.session_state.get(dose_key, 0.0)
+            full_bolus.extend([dose_value] * 160)
+            full_basal.extend([st.session_state.get("dose_basal", 0.02)] * 160)
+
+    meal_total = df.iloc[:480]["CHO"].sum()
+
+    # 요약 생성
+    st.markdown("### 📊 오늘의 혈당 제어 요약")
+    st.success(summarize_today(full_basal, full_bolus, meal_total, full_bg))
+    st.markdown("💡 하루 동안 총 탄수화물 섭취와 인슐린 주입이 혈당에 어떤 영향을 주었는지 확인해 보세요.")
+
+    # AI 제어 결과 불러오기
+    ai_df = df.iloc[:480].reset_index(drop=True)
+    ai_bg = ai_df["BG"].tolist()
+
+    # 혈당 비교 시각화
+    fig = go.Figure()
+
+    fig_combined = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # 1. 정상 혈당 범위 음영 (연녹색)
+    fig_combined.add_shape(
+        type="rect",
+        xref="x", yref="y",
+        x0=time_range[0], x1=time_range[-1],
+        y0=70, y1=180,
+        fillcolor="lightgreen", opacity=0.2,
+        layer="below", line_width=0
+    )
+
+    # 2. 사용자 혈당 (파랑)
+    fig_combined.add_trace(go.Scatter(
+        x=time_range,
+        y=full_bg,
+        mode="lines",
+        name="<span style='color:#1f77b4'>🧑 사용자 혈당</span>",
+        line=dict(color="#1f77b4", width=2)
+    ), secondary_y=False)
+
+    # 3. AI 혈당 (빨강 + 점선)
+    fig_combined.add_trace(go.Scatter(
+        x=time_range,
+        y=ai_bg,
+        mode="lines",
+        name="<span style='color:#d62728'>🤖 AI 혈당</span>",
+        line=dict(color="#d62728", width=2, dash="dot")
+    ), secondary_y=False)
+
+    # 6. 레이아웃 설정
+    fig_combined.update_layout(
+        # title="AI vs 사용자 혈당",
+        xaxis_title="시간",
+        yaxis_title="혈당 (mg/dL)",
+        legend=dict(x=0, y=1.15, orientation="h"),
+        height=400
+    )
+
+    # 보조 y축 설정
+    fig_combined.update_yaxes(title_text="혈당 (mg/dL)", secondary_y=False)
+
+    # 6. 그래프 렌더링
+    plot_static(fig_combined)
+
+    # 2. 설명 문단 (모바일 최적화)
+    st.markdown("""
+        <div style='
+            font-size: 20px;
+            font-weight: bold;
+            color: #212529;
+            background-color: #f1f3f5;
+            padding: 16px;
+            margin-top: 12px;
+            margin-bottom: 24px;
+            border-radius: 12px;
+            line-height: 1.6;
+        '>
+        🤖 <b>같은 조건에서 AI는 이렇게 반응했어요.</b><br><br>
+        당신이 조절했던 식사와 혈당 상황에서,  
+        AI가 더 잘 혈당을 조절해 주었나요?
+        <br><br>
+        그 결과를 직접 비교해보세요.
+        </div>
+        """, unsafe_allow_html=True)
+
+    if st.button("결과 분석"):
+        st.session_state.env_user = copy.deepcopy(st.session_state[env_result_key])
+        st.session_state.fbg = full_bg
+        st.session_state.step = 34
+        st.rerun()
+
+if st.session_state.step == 34:
+    st.subheader("✅ 전체 시뮬레이션 결과 요약")
+    full_bg = st.session_state.fbg
+    ai_df = df.iloc[:480].reset_index(drop=True)
+    ai_bg = ai_df["BG"].tolist()
+
+       
+    # 3. TIR 계산 및 막대 시각화
+    def compute_tir(bg_series):
+        in_range = np.logical_and(np.array(bg_series) >= 70, np.array(bg_series) <= 180)
+        return 100 * np.sum(in_range) / len(bg_series)
+
+    tir_ai = compute_tir(ai_bg)
+    tir_user = compute_tir(full_bg)
+
+    fig_tir = go.Figure()
+    fig_tir.add_trace(go.Bar(
+        x=["AI", "사용자"],
+        y=[tir_ai, tir_user],
+        marker_color=["green", "blue"]
+    ))
+
+    fig_tir.update_layout(
+        title="TIR (Time in Range) 비교",
+        yaxis_title="TIR (%)",
+        xaxis_title="제어 주체",
+        yaxis=dict(range=[0, 100]),
+        height=350
+    )
+
+    # st.plotly_chart(fig_tir, use_container_width=True)
+    plot_static(fig_tir)
+
+    st.markdown("""
+    <div style='
+        font-size: 18px; 
+        background-color: #f8f9fa; 
+        padding: 14px 18px; 
+        border-radius: 12px; 
+        margin-bottom: 20px; 
+        line-height: 1.7; 
+        color: #333;
+    '>
+    💡 <b>TIR(Time in Range)</b>란,  
+    하루 24시간 중 혈당이 <b>정상 범위(70~180 mg/dL)</b>에  
+    머물렀던 <b>비율</b>을 뜻해요.  
+    <br><br>
+    숫자가 높을수록 혈당이 더 <b>안전하고 안정적으로 관리</b>된 거예요!
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.subheader("📊 TIR (Time in Range: 70~180 mg/dL)")
+    st.write(f"✅ **AI TIR**: {tir_ai:.2f}%")
+    st.write(f"🧑‍⚕️ **사용자 TIR**: {tir_user:.2f}%")
+
+    def compute_variability(bg_series):
+        bg_array = np.array(bg_series)
+        avg = np.mean(bg_array)
+        std = np.std(bg_array)
+        cv = (std / avg) * 100
+        return avg, std, cv
+    
+    # 계산
+    avg_ai, std_ai, cv_ai = compute_variability(ai_bg)
+    avg_user, std_user, cv_user = compute_variability(full_bg)
+
+        # 기존 결과 비교 메시지 대체
+    st.subheader("🏁 결과 요약")
+
+    if tir_user > tir_ai and cv_user < cv_ai:
+        st.success("🎯 사용자 제어가 AI보다 TIR도 높고 혈당 변동성도 낮아 우수한 제어를 보여주었습니다.")
+    elif tir_user > tir_ai and cv_user > cv_ai:
+        st.info(f"📈 사용자의 TIR은 높지만 변동성이 큽니다. (CV {cv_user:.1f}% > {cv_ai:.1f}%)")
+    elif tir_user < tir_ai and cv_user < cv_ai:
+        st.warning(f"🤖 AI의 TIR은 높지만, 사용자의 혈당 변동성이 더 낮아 안정적인 제어를 보였습니다.")
+    elif tir_user < tir_ai and cv_user > cv_ai:
+        st.error("⚠️ AI 제어가 TIR과 혈당 안정성 모두에서 더 우수했습니다.")
+    else:
+        st.info("⚖️ 사용자와 AI가 유사한 수준의 혈당 제어 성능을 보여주었습니다.")
+
+    # 표 형태 요약
+    st.subheader("📊 혈당 변동성 비교")
+
+    st.markdown(f"""
+    | 구분 | 평균 혈당 | 표준편차 (SD) | 변동계수 (CV%) |
+    |------|------------|----------------|----------------|
+    | **AI** | {avg_ai:.1f} mg/dL | {std_ai:.1f} | {cv_ai:.1f}% |
+    | **사용자** | {avg_user:.1f} mg/dL | {std_user:.1f} | {cv_user:.1f}% |
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style='
+        font-size: 20px;
+        font-weight: bold;
+        color: #212529;
+        background-color: #fff3cd;
+        padding: 18px;
+        margin-top: 30px;
+        margin-bottom: 24px;
+        border-left: 6px solid #ffec99;
+        border-radius: 10px;
+        line-height: 1.6;
+    '>
+    🩺 <b>오늘의 혈당 관리 체험, 어떠셨나요?</b><br><br>
+    하루 동안 직접 식사와 인슐린을 조절하며  
+    혈당이 어떻게 변하는지 몸소 느끼셨을 거예요.  
+    <br><br>
+    조금 복잡하고 어려웠다면, 그것이 바로  
+    당뇨병 환자들이 매일 겪는 현실입니다.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("🙋 다른 환자 시나리오도 체험해 보시겠어요?")
+
+
+    if st.button("✅ 시뮬레이션 완료 → 처음으로"):
+        for key in list(st.session_state.keys()):
+            if key.startswith("bg_user") or key.startswith("env_") or key.startswith("dose"):
+                del st.session_state[key]
+        st.session_state.step = 0
+        st.rerun()
