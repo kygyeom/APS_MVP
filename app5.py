@@ -24,6 +24,21 @@ components.html("""
     </script>
 """, height=0)
 
+GA_MEASUREMENT_ID = "G-SQL1CS5F2E"  # GA4 ID
+
+ga_code = f"""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id={GA_MEASUREMENT_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{dataLayer.push(arguments);}}
+  gtag('js', new Date());
+  gtag('config', '{GA_MEASUREMENT_ID}');
+</script>
+"""
+components.html(ga_code, height=0)
+
+
 import random
 
 def get_random_persona(group: str, weight: float):
